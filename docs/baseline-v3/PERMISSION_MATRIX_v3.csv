@@ -1,0 +1,43 @@
+Capability,Owner,Admin,Project Manager*,Member*,Workspace Member (no project row),Platform Super Admin,Source
+Transfer workspace ownership,Y,N,N,N,N,N,SRS §4 · FR-TEN-006
+Workspace settings and invites,Y,Y,N,N,N,N,SRS §4 · FR-TEN-002/007
+Create / archive / unarchive projects,Y,Y,N,N,N,N,SRS §4 · FR-PRJ-004
+Project settings / membership,Y,Y,Y,N,N,N,SRS §4 · FR-PRJ-003
+Create issue,Y,Y,Y,Y,N,N,SRS §4 (Member: assignee self / none)
+Edit any project issue,Y,Y,Y,N,N,N,SRS §4
+Edit own assigned / reported issue,Y,Y,Y,Own,N,N,SRS §4 · ADR-008
+Manage sprint / backlog,Y,Y,Y,N,N,N,SRS §4
+Change status of own assigned/reported issue (form or board),Y,Y,Y,Own,N,N,SRS §4 · ADR-008
+Comment / attach on visible issue,Y,Y,Y,Y,N,N,SRS §4
+Read project reports,Y,Y,Y,Y,N,N,SRS §4
+Change member roles / remove workspace members,Y,Not Owner,N,N,N,N,SRS §4 · FR-TEN-004
+Reorder backlog / board ranking,Y,Y,Y,N,N,N,SRS §4 · ADR-008
+Manage project labels,Y,Y,Y,N,N,N,SRS §4 · FR-ISS-005
+Soft-delete / restore issue,Y,Y,Y,N,N,N,SRS §4 · FR-ISS-007
+Remove (moderate) others' comments,Y,Y,Y,N,N,N,SRS §4 · ADR-014
+Watch / unwatch visible issue,Y,Y,Y,Y,N,N,SRS §4 · FR-ISS-010
+View workspace member list,Y,Y,Names,Names,Names,N,SRS §4 · FR-TEN-008 (emails: Owner/Admin)
+Delete issue permanently,N,N,N,N,N,N,SRS §4
+◆ Remove / demote the Owner,N¹,N,N,N,N,N,SRS §6 · FR-TEN-006
+◆ Grant workspace privileges,Y,Y,N,N,N,N,SRS §6
+◆ Edit (≤ 15 min) / delete own comment,Own,Own,Own,Own,N,N,SRS §4 footnote
+◆ Workspace overview dashboard,Y,Y,Scoped,Scoped,Scoped,N,FR-RPT-001
+◆ Read tenant content (issues / comments / files),Y,Y,Y,Y,N,N,FR-ADM-003
+"◆ Tenant metadata, platform metrics",N,N,N,N,N,Y,FR-ADM-001/004
+◆ Suspend / reactivate workspace,N,N,N,N,N,Y,FR-ADM-002
+
+Field (issue edit),Owner/Admin/PM (any issue),Member - own assigned/reported,Member - other visible issue,Note
+title,Y,Y,N,SRS §4 footnote
+description,Y,Y,N,sanitised server-side (FR-ISS-002)
+dueAt,Y,Y,N,SRS §4 footnote
+status,Y,Y,N,form or board — one policy; Member move appends to column end (ADR-008)
+projectId (move),N,N,N,immutable for every role; no cross-project moves (ADR-006)
+assigneeId,Y,N,N,eligible = has project access (FR-ISS-009); Member may self-assign on create only
+sprintId,Y,N,N,via sprint planning; one open sprint per issue (FR-SPR-001)
+storyPoints,Y,N,N,integer 0–100 or empty (ADR-009)
+priority,Y,N,N,default MEDIUM (ADR-009)
+"type, parentId",Y,N,N,Member sets on create only; hierarchy matrix (ADR-006)
+labels (IssueLabel),Y,N,N,Member sets on create only; label CRUD PM+ (FR-ISS-005)
+rank (ordering),Y,N,N,PATCH /issues/:iid/rank — PM/Admin/Owner (ADR-008)
+deletedAt (soft delete / restore),Y,N,N,FR-ISS-007
+comment / attachment / watch,Y,Y,Y,any visible issue; comment edit ≤ 15 min by author
