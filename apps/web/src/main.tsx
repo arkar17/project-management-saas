@@ -13,6 +13,8 @@ import { MembersPage } from './pages/workspaces/members-page';
 import { SettingsPage } from './pages/workspaces/settings-page';
 import { WorkspaceIndexPage } from './pages/workspaces/workspace-index-page';
 import { WorkspaceOverviewPage } from './pages/workspaces/workspace-overview-page';
+import { IssueDetailPage } from './pages/issues/issue-detail-page';
+import { IssueListPage } from './pages/issues/issue-list-page';
 import { CreateProjectPage } from './pages/projects/create-project-page';
 import { ProjectLayout } from './pages/projects/project-layout';
 import { ProjectListPage } from './pages/projects/project-list-page';
@@ -48,6 +50,8 @@ createRoot(document.getElementById('root')!).render(
             <Route path="/workspaces/:wid/projects/new" element={<CreateProjectPage />} />
             <Route path="/workspaces/:wid/projects/:pid" element={<ProjectLayout />}>
               <Route index element={<ProjectOverviewPage />} />
+              <Route path="issues" element={<IssueListPage />} />
+              <Route path="issues/:iid" element={<IssueDetailPage />} />
               <Route path="members" element={<ProjectMembersPage />} />
               <Route path="settings" element={<ProjectSettingsPage />} />
             </Route>

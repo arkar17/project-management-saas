@@ -9,6 +9,7 @@ import { Field } from '../../components/ui/field';
 import { fieldErrors } from '../../lib/auth';
 import { canInProject } from '../../lib/permissions';
 import { useSetArchived, useUpdateProject } from '../../lib/projects';
+import { LabelManager } from './label-manager';
 import { ProjectFormFields, issuesToErrors, type ProjectFormValues } from './project-form-fields';
 import { useProjectContext } from './project-layout';
 
@@ -28,6 +29,10 @@ export function ProjectSettingsPage() {
       <GeneralSettings
         key={project.id + project.name + project.status + project.startDate + project.targetDate}
         disabled={!canEdit || archived}
+      />
+      <LabelManager
+        pid={project.id}
+        editable={canInProject(project.myAccess, 'manageLabels') && !archived}
       />
       {canArchive && <ArchiveSection archived={archived} />}
     </div>

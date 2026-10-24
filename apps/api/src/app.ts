@@ -15,6 +15,10 @@ import { createAuthService } from './modules/auth/auth.service.js';
 import { requireSession, requireVerifiedEmail } from './modules/auth/session.middleware.js';
 import { createSessionService } from './modules/auth/session.service.js';
 import { healthRouter } from './modules/health/health.routes.js';
+import { createCommentService } from './modules/issues/comment.service.js';
+import { issueRouter } from './modules/issues/issue.routes.js';
+import { createIssueService } from './modules/issues/issue.service.js';
+import { createLabelService } from './modules/issues/label.service.js';
 import { createProjectMemberService } from './modules/projects/project-member.service.js';
 import { projectRouter } from './modules/projects/project.routes.js';
 import { createProjectService } from './modules/projects/project.service.js';
@@ -84,6 +88,17 @@ export function createApp({ env, db, mailer, logger, rateLimits = DEFAULT_RATE_L
     '/projects',
     ...requireVerifiedUser,
     projectRouter(db, projects, createProjectMemberService(db)),
+  );
+  // Issues, labels and comments; each route resolves its own ancestry (ADR-002).
+  // /projects/* is already guarded by the mount above.
+  api.use(['/issues', '/labels', '/comments'], ...requireVerifiedUser);
+  api.use(
+    issueRouter({
+      db,
+      issues: createIssueService(db),
+      comments: createCommentService(db),
+      labels: createLabelService(db),
+    }),
   );
 
   app.use('/api/v1', api);
