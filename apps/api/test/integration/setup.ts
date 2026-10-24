@@ -1,4 +1,6 @@
+import request from 'supertest';
 import { afterAll, beforeEach } from 'vitest';
+import { csrf } from '../helpers.js';
 import { hashPassword } from '../../src/lib/password.js';
 import { createPrisma } from '../../src/lib/prisma.js';
 
@@ -74,4 +76,17 @@ export async function createIssue(
       ...extra,
     },
   });
+}
+
+/** Signs in through the real login endpoint and returns the `pm_sid=…` cookie pair. */
+export async function signIn(app: Parameters<typeof request>[0], email: string): Promise<string> {
+  const res = await request(app)
+    .post('/api/v1/auth/login')
+    .set(csrf())
+    .send({ email, password: PASSWORD });
+  const cookie = ([] as string[])
+    .concat(res.headers['set-cookie'] ?? [])
+    .find((c) => c.startsWith('pm_sid='));
+  if (!cookie) throw new Error(`login failed for ${email}: ${res.status}`);
+  return cookie.split(';')[0]!;
 }

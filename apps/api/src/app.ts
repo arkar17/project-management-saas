@@ -12,9 +12,15 @@ import type { Mailer } from './lib/mailer.js';
 import type { Db } from './lib/prisma.js';
 import { authRouter, type AuthRateLimits } from './modules/auth/auth.routes.js';
 import { createAuthService } from './modules/auth/auth.service.js';
+import { requireSession, requireVerifiedEmail } from './modules/auth/session.middleware.js';
 import { createSessionService } from './modules/auth/session.service.js';
 import { healthRouter } from './modules/health/health.routes.js';
 import { platformAuthRouter } from './modules/platform-admin/platform-auth.routes.js';
+import { invitationRouter } from './modules/workspaces/invitation.routes.js';
+import { createInvitationService } from './modules/workspaces/invitation.service.js';
+import { createMemberService } from './modules/workspaces/member.service.js';
+import { workspaceRouter } from './modules/workspaces/workspace.routes.js';
+import { createWorkspaceService } from './modules/workspaces/workspace.service.js';
 
 const MINUTE = 60 * 1000;
 
@@ -22,6 +28,7 @@ export const DEFAULT_RATE_LIMITS: AuthRateLimits = {
   login: { windowMs: 15 * MINUTE, limit: 10 },
   register: { windowMs: 60 * MINUTE, limit: 10 },
   email: { windowMs: 15 * MINUTE, limit: 5 },
+  invite: { windowMs: 60 * MINUTE, limit: 30 },
 };
 
 export interface AppDeps {
@@ -51,7 +58,23 @@ export function createApp({ env, db, mailer, logger, rateLimits = DEFAULT_RATE_L
   api.use(csrfProtection(env.WEB_ORIGINS));
   api.use('/auth', authRouter(auth, sessions, rateLimits));
   api.use('/platform/auth', platformAuthRouter(auth, sessions, rateLimits.login));
-  // G2+ tenant modules mount here behind requireSession(sessions, 'APP').
+
+  // Tenant routes: APP session + verified email (FR-AUTH-001, TC-AUTH-001-3).
+  const requireVerifiedUser = [requireSession(sessions, 'APP'), requireVerifiedEmail(db)];
+  const invitations = createInvitationService(db, mailer, env.APP_BASE_URL);
+  api.use('/invitations', invitationRouter(invitations, requireVerifiedUser, rateLimits));
+  api.use(
+    '/workspaces',
+    ...requireVerifiedUser,
+    workspaceRouter({
+      db,
+      workspaces: createWorkspaceService(db),
+      members: createMemberService(db),
+      invitations,
+      sessions,
+      inviteLimit: rateLimits.invite,
+    }),
+  );
 
   app.use('/api/v1', api);
   app.use(notFoundHandler);

@@ -1,6 +1,6 @@
 import { registerInput } from '@pm/shared';
 import { useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { AuthLayout } from '../components/auth-layout';
 import { Alert } from '../components/ui/alert';
 import { Button } from '../components/ui/button';
@@ -10,7 +10,9 @@ import { fieldErrors, useRegister } from '../lib/auth';
 
 export function RegisterPage() {
   const register = useRegister();
-  const [form, setForm] = useState({ name: '', email: '', password: '' });
+  const [params] = useSearchParams();
+  // Invitees arrive with their invited email prefilled (ADR-013).
+  const [form, setForm] = useState({ name: '', email: params.get('email') ?? '', password: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   function onSubmit(e: FormEvent) {

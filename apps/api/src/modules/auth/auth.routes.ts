@@ -14,6 +14,8 @@ export interface AuthRateLimits {
   login: RateLimitRule;
   register: RateLimitRule;
   email: RateLimitRule;
+  /** FR-AUTH-005: invitation create/resend. */
+  invite: RateLimitRule;
 }
 
 const accepted = (res: Response) => res.status(202).json({ status: 'accepted' });

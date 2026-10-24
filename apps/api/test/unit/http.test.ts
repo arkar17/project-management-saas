@@ -107,7 +107,7 @@ describe('TC-AUTH-005-1 rate limiting', () => {
     const rule = { windowMs: 60_000, limit: 2 };
     const limited = buildApp({
       db: offlineDb(),
-      rateLimits: { login: rule, register: rule, email: rule },
+      rateLimits: { login: rule, register: rule, email: rule, invite: rule },
     }).app;
     const send = () => request(limited).post('/api/v1/auth/login').set(csrf()).send({});
     expect((await send()).status).toBe(422);

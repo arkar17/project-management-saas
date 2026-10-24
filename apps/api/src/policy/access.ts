@@ -18,6 +18,14 @@ import type { Db } from '../lib/prisma.js';
  * the request body is never trusted. Anything the caller cannot see is a 404.
  */
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Malformed ids are just another kind of absent resource (404), never a 500. */
+export function assertId(id: string): string {
+  if (!UUID.test(id)) throw notFound();
+  return id;
+}
+
 export interface WorkspaceAccess {
   userId: string;
   workspaceId: string;
@@ -41,6 +49,7 @@ export async function resolveWorkspaceAccess(
   userId: string,
   workspaceId: string,
 ): Promise<WorkspaceAccess> {
+  assertId(workspaceId);
   const member = await db.workspaceMember.findUnique({
     where: { workspaceId_userId: { workspaceId, userId } },
     select: { role: true, status: true, workspace: { select: { status: true } } },
@@ -59,6 +68,7 @@ export async function resolveProjectAccess(
   userId: string,
   projectId: string,
 ): Promise<ProjectAccess> {
+  assertId(projectId);
   const project = await db.project.findUnique({
     where: { id: projectId },
     select: { workspaceId: true, archivedAt: true },
@@ -85,6 +95,7 @@ export async function resolveIssueAccess(
   userId: string,
   issueId: string,
 ): Promise<IssueAccess> {
+  assertId(issueId);
   const issue = await db.issue.findUnique({
     where: { id: issueId },
     select: { projectId: true, reporterId: true, assigneeId: true, deletedAt: true },

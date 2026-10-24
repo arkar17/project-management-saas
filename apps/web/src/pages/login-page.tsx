@@ -7,6 +7,7 @@ import { Button } from '../components/ui/button';
 import { Field } from '../components/ui/field';
 import { ApiError } from '../lib/api';
 import { useLogin, useMe } from '../lib/auth';
+import { pendingInvite } from '../lib/workspaces';
 
 export function LoginPage() {
   const me = useMe();
@@ -26,7 +27,10 @@ export function LoginPage() {
     login.mutate(parsed.data, {
       onSuccess: () => {
         const from = (location.state as { from?: string } | null)?.from;
-        navigate(from ?? '/', { replace: true });
+        // An invitation opened before registering/verifying resumes after sign-in.
+        const invite = pendingInvite.get();
+        const resume = invite ? `/invitations/accept?token=${encodeURIComponent(invite)}` : '/';
+        navigate(from ?? resume, { replace: true });
       },
     });
   }
