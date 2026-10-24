@@ -259,7 +259,11 @@ function SprintReport({ sid }: { sid: string }) {
   if (!report.data) return null;
   const r = report.data;
   const items: [string, string | number][] = [
-    ['Committed', `${r.committedIssues} issues · ${r.committedPoints} pt`],
+    [
+      'Committed',
+      `${r.committedIssues} issues · ${r.committedPoints} pt` +
+        (r.unestimatedCommitted > 0 ? ` (${r.unestimatedCommitted} unestimated)` : ''),
+    ],
     ['Completed', `${r.completedIssues} issues · ${r.completedPoints} pt`],
     ['Added after start', r.addedAfterStart],
     ['Removed during sprint', r.removedDuringSprint],

@@ -335,11 +335,11 @@ describe('FR-SPR sprints', () => {
     const c = await w.issue('C');
     const s = await w.sprint('S1', [a.id, b.id, c.id]);
     await request(w.app).post(`${api}/sprints/${s.id}/start`).set(as(w.c.pm));
-    const committed = await db.sprintIssueHistory.findMany({
-      where: { sprintId: s.id },
-      orderBy: { committedPoints: 'desc' },
-    });
-    expect(committed.map((r) => r.committedPoints)).toEqual([5, 3, 0]);
+    const committed = await db.sprintIssueHistory.findMany({ where: { sprintId: s.id } });
+    const pointsOf = (id: string) => committed.find((r) => r.issueId === id)?.committedPoints;
+    // Unestimated C keeps a null snapshot so reports can list it; it counts as 0.
+    expect([pointsOf(a.id), pointsOf(b.id), pointsOf(c.id)]).toEqual([5, 3, null]);
+    expect(committed.every((r) => r.committedAt)).toBe(true);
 
     // Later estimate change does not alter the snapshot.
     const aNow = await db.issue.findUniqueOrThrow({ where: { id: a.id } });
@@ -375,6 +375,7 @@ describe('FR-SPR sprints', () => {
     expect(report).toMatchObject({
       committedIssues: 3,
       committedPoints: 8,
+      unestimatedCommitted: 1,
       addedAfterStart: 1,
       removedDuringSprint: 1,
       completedIssues: 1,

@@ -106,6 +106,8 @@ export const sprintReportDto = z.object({
   sprint: sprintDto,
   committedIssues: z.number().int(),
   committedPoints: z.number().int(),
+  /** Committed issues without an estimate; they count as 0 points (ADR-003, FR-RPT-003). */
+  unestimatedCommitted: z.number().int(),
   addedAfterStart: z.number().int(),
   removedDuringSprint: z.number().int(),
   completedIssues: z.number().int(),

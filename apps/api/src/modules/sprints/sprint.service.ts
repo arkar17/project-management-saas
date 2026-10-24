@@ -275,10 +275,11 @@ export function createSprintService(db: Db) {
           include: { issue: { select: { storyPoints: true } } },
         });
         for (const row of rows) {
-          // Unestimated issues commit 0 points (ADR-003); later estimate changes do not apply.
+          // ADR-003: unestimated issues keep a null snapshot (the "unestimated" flag reports
+          // need) and count as 0 in every sum; later estimate changes do not apply.
           await tx.sprintIssueHistory.update({
             where: { id: row.id },
-            data: { committedAt: now, committedPoints: row.issue.storyPoints ?? 0 },
+            data: { committedAt: now, committedPoints: row.issue.storyPoints },
           });
         }
         await writeAudit(tx, {
@@ -327,7 +328,7 @@ export function createSprintService(db: Db) {
         for (const row of done) {
           await tx.sprintIssueHistory.update({
             where: { id: row.id },
-            data: { completedAt: now, completedPoints: row.issue.storyPoints ?? 0 },
+            data: { completedAt: now, completedPoints: row.issue.storyPoints },
           });
         }
         await removeIssues(
@@ -403,6 +404,7 @@ export function createSprintService(db: Db) {
         sprint: toSprintDto(sprint),
         committedIssues: committed.length,
         committedPoints: committed.reduce((s, r) => s + (r.committedPoints ?? 0), 0),
+        unestimatedCommitted: committed.filter((r) => r.committedPoints === null).length,
         addedAfterStart: startedAt
           ? rows.filter((r) => !r.committedAt && r.addedAt.getTime() >= startedAt).length
           : 0,

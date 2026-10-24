@@ -146,6 +146,7 @@ describe('Sprint completion dialog', () => {
         sprint,
         committedIssues: 1,
         committedPoints: 0,
+        unestimatedCommitted: 0,
         addedAfterStart: 0,
         removedDuringSprint: 0,
         completedIssues: 0,
