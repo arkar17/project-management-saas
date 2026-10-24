@@ -136,6 +136,18 @@ describe('FR-PRJ-001 creation', () => {
   });
 });
 
+describe('GAP-02 schema default', () => {
+  it('Project.status defaults to ACTIVE in the database (SRS FR-PRJ-001)', async () => {
+    const owner = await createUser('default@p.test');
+    const { project } = await createWorkspace('default-co', owner.id); // no status given
+    expect(project.status).toBe('ACTIVE');
+    const [row] = await db.$queryRaw<{ column_default: string }[]>`
+      SELECT column_default FROM information_schema.columns
+      WHERE table_name = 'Project' AND column_name = 'status'`;
+    expect(row?.column_default).toBe(`'ACTIVE'::"ProjectStatus"`);
+  });
+});
+
 describe('FR-PRJ-002 visibility', () => {
   it('TC-PRJ-002-1 list returns only accessible projects; search and filters apply', async () => {
     const { app, wid, cookies, users } = await world();
@@ -151,7 +163,7 @@ describe('FR-PRJ-002 visibility', () => {
     const list = (cookie: string, query = '') =>
       request(app).get(`${api}/workspaces/${wid}/projects${query}`).set('Cookie', cookie);
 
-    // createWorkspace() fixture adds a PLANNED "PROJ" project with no members.
+    // createWorkspace() fixture adds an ACTIVE (DB default) "PROJ" project with no members.
     expect((await list(cookies.owner)).body.total).toBe(3);
     const memberView = await list(cookies.member);
     expect(memberView.body.projects.map((p: { key: string }) => p.key)).toEqual(['WEB']);
@@ -161,7 +173,7 @@ describe('FR-PRJ-002 visibility', () => {
     expect(
       (await list(cookies.owner, '?search=secr')).body.projects.map((p: { key: string }) => p.key),
     ).toEqual(['SEC']);
-    expect((await list(cookies.owner, '?status=PLANNED')).body.total).toBe(2);
+    expect((await list(cookies.owner, '?status=PLANNED')).body.total).toBe(1);
     expect((await list(cookies.owner, '?pageSize=1')).body).toMatchObject({
       total: 3,
       pageSize: 1,

@@ -51,7 +51,7 @@ export function createProjectService(db: Db) {
               key: input.key,
               name: input.name,
               description: input.description ?? null,
-              // SRS FR-PRJ-001 default; set explicitly because the schema default differs (docs/GAPS.md).
+              // SRS FR-PRJ-001 default ACTIVE (also the DB default since GAP-02).
               status: input.status,
               startDate: toDate(input.startDate) ?? null,
               targetDate: toDate(input.targetDate) ?? null,

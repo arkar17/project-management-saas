@@ -260,7 +260,7 @@ model Project {
   key          String
   name         String
   description  String?
-  status       ProjectStatus @default(PLANNED)
+  status       ProjectStatus @default(ACTIVE)
   startDate    DateTime?     @db.Date
   targetDate   DateTime?     @db.Date
   issueCounter Int           @default(0)
