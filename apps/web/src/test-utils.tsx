@@ -6,7 +6,7 @@ import { vi } from 'vitest';
 
 /** Routes fetch calls by path to canned JSON responses (component tests only). */
 export function stubApi(routes: Record<string, unknown>) {
-  const fetchMock = vi.fn(async (url: string) => {
+  const fetchMock = vi.fn(async (url: string, _init?: RequestInit) => {
     const path = url.replace('/api/v1', '').split('?')[0]!;
     const body = routes[path];
     if (body === undefined)

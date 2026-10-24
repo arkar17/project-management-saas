@@ -32,6 +32,9 @@ export function ProjectLayout() {
   const base = `/workspaces/${wid}/projects/${pid}`;
   const tabs = [
     { to: base, label: 'Overview', end: true },
+    { to: `${base}/board`, label: 'Board', end: false },
+    { to: `${base}/backlog`, label: 'Backlog', end: false },
+    { to: `${base}/sprints`, label: 'Sprints', end: false },
     { to: `${base}/issues`, label: 'Issues', end: false },
     { to: `${base}/members`, label: 'Members', end: false },
     { to: `${base}/settings`, label: 'Settings', end: false },

@@ -12,10 +12,10 @@ Open items to close before release (CLAUDE.md §4). Remove an entry when it is f
 | GAP-07 | Testing       | No browser E2E or CI smoke E2E yet; CI integration job needs `RUN_INTEGRATION=true`.                                                                                                                                                         | G5                      |
 | GAP-08 | Issues        | FR-ISS-006 attachments (upload, MIME sniffing, 10 MB limit, 5-minute signed URLs; TC-ISS-006-1/2) need the G3 object-storage adapter. The `Attachment` table exists; no routes yet.                                                          | G3                      |
 | GAP-09 | Notifications | Mentions, assignment and watched-issue changes are written to `OutboxEvent` (`issue.commented`, `issue.assigned`, `issue.updated`) in the same transaction, but nothing delivers them yet (TC-ISS-005-4 checks who the recipients would be). | G4                      |
-| GAP-10 | Issues        | Rank: new issues and status changes append to the end of the column. Manual reordering (`PATCH /issues/:iid/rank`), the >64-character rebalance and board/backlog ordering are not built.                                                    | G3                      |
 
 ## Resolved
 
-| ID     | Resolution                                                                                                                          |
-| ------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| GAP-02 | `Project.status` default changed to `ACTIVE` (migration `20261024120000_project_status_default_active`, applied to `pm_test` only). |
+| ID     | Resolution                                                                                                                                              |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GAP-02 | `Project.status` default changed to `ACTIVE` (migration `20261024120000_project_status_default_active`, applied to `pm_test` only).                     |
+| GAP-10 | Board reordering (`PATCH /issues/:iid/rank`), anchor-based inserts, project-global appends and transactional rebalance (>64 chars) implemented in G3-A. |
