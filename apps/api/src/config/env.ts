@@ -39,9 +39,33 @@ const envSchema = z.object({
 
 export type Env = z.infer<typeof envSchema>;
 
+/** apps/worker needs the database and mail settings only (no HTTP or storage config). */
+const workerEnvSchema = envSchema
+  .pick({
+    NODE_ENV: true,
+    LOG_LEVEL: true,
+    DATABASE_URL: true,
+    APP_BASE_URL: true,
+    SMTP_HOST: true,
+    SMTP_PORT: true,
+    SMTP_USER: true,
+    SMTP_PASSWORD: true,
+    MAIL_FROM: true,
+  })
+  .extend({ WORKER_POLL_MS: z.coerce.number().int().min(100).default(2000) });
+export type WorkerEnv = z.infer<typeof workerEnvSchema>;
+
 /** Fails fast at startup with the names (never the values) of invalid variables. */
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
-  const parsed = envSchema.safeParse(source);
+  return parse(envSchema, source);
+}
+
+export function loadWorkerEnv(source: NodeJS.ProcessEnv = process.env): WorkerEnv {
+  return parse(workerEnvSchema, source);
+}
+
+function parse<S extends z.ZodTypeAny>(schema: S, source: NodeJS.ProcessEnv): z.infer<S> {
+  const parsed = schema.safeParse(source);
   if (!parsed.success) {
     const fields = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`);
     throw new Error(`Invalid environment configuration:\n  ${fields.join('\n  ')}`);

@@ -26,7 +26,7 @@ async function login(
 
 describe('FR-AUTH-001 registration', () => {
   it('TC-AUTH-001-1 normalises email, hashes with Argon2id, sends a verification link', async () => {
-    const { app, mailer } = setup();
+    const { app, mailer, deliver } = setup();
     const res = await request(app)
       .post('/api/v1/auth/register')
       .set(csrf())
@@ -37,6 +37,7 @@ describe('FR-AUTH-001 registration', () => {
     expect(user.passwordHash).toMatch(/^\$argon2id\$/);
     expect(user.verifiedAt).toBeNull();
 
+    await deliver();
     const token = mailer.tokenFrom(mailer.last('ada@example.com'));
     const stored = await db.verificationToken.findFirstOrThrow({ where: { userId: user.id } });
     expect(stored.tokenHash).toBe(hashToken(token)); // only the hash is persisted
@@ -50,7 +51,7 @@ describe('FR-AUTH-001 registration', () => {
   });
 
   it('TC-AUTH-001-2 duplicate email gets the identical 202 and an "account exists" email', async () => {
-    const { app, mailer } = setup();
+    const { app, mailer, deliver } = setup();
     await createUser('dup@example.com');
     const res = await request(app)
       .post('/api/v1/auth/register')
@@ -58,6 +59,7 @@ describe('FR-AUTH-001 registration', () => {
       .send({ name: 'Other', email: 'DUP@example.com', password: PASSWORD });
     expect(res.status).toBe(202);
     expect(res.body).toEqual({ status: 'accepted' });
+    await deliver();
     expect(mailer.last('dup@example.com')?.subject).toMatch(/already have an account/);
     expect(await db.user.count()).toBe(1);
   });
@@ -179,7 +181,7 @@ describe('FR-AUTH-002 sessions', () => {
 
 describe('FR-AUTH-003 password reset', () => {
   it('TC-AUTH-003-1 forgot-password is account-neutral', async () => {
-    const { app, mailer } = setup();
+    const { app, mailer, deliver } = setup();
     await createUser('known@example.com');
     const known = await request(app)
       .post('/api/v1/auth/forgot-password')
@@ -192,16 +194,18 @@ describe('FR-AUTH-003 password reset', () => {
     expect(known.status).toBe(202);
     expect(unknown.status).toBe(202);
     expect(known.body).toEqual(unknown.body);
+    await deliver();
     expect(mailer.sent.map((m) => m.to)).toEqual(['known@example.com']);
   });
 
   it('TC-AUTH-003-2 reset token is single-use and expires after 1 hour (410)', async () => {
-    const { app, mailer } = setup();
+    const { app, mailer, deliver } = setup();
     const user = await createUser('reset@example.com');
     await request(app)
       .post('/api/v1/auth/forgot-password')
       .set(csrf())
       .send({ email: 'reset@example.com' });
+    await deliver();
     const token = mailer.tokenFrom(mailer.last());
     const stored = await db.verificationToken.findFirstOrThrow({ where: { userId: user.id } });
     expect(stored.expiresAt.getTime() - stored.createdAt.getTime()).toBeLessThanOrEqual(
@@ -220,6 +224,7 @@ describe('FR-AUTH-003 password reset', () => {
       .post('/api/v1/auth/forgot-password')
       .set(csrf())
       .send({ email: 'reset@example.com' });
+    await deliver();
     const expired = mailer.tokenFrom(mailer.last());
     await db.verificationToken.update({
       where: { tokenHash: hashToken(expired) },
@@ -236,13 +241,14 @@ describe('FR-AUTH-003 password reset', () => {
   });
 
   it('TC-AUTH-003-3 reset revokes all sessions', async () => {
-    const { app, mailer } = setup();
+    const { app, mailer, deliver } = setup();
     await createUser('all@example.com');
     const cookie = pair(sessionCookie(await login(app, 'all@example.com'), 'pm_sid'));
     await request(app)
       .post('/api/v1/auth/forgot-password')
       .set(csrf())
       .send({ email: 'all@example.com' });
+    await deliver();
     const token = mailer.tokenFrom(mailer.last());
     await request(app)
       .post('/api/v1/auth/reset-password')
@@ -255,14 +261,16 @@ describe('FR-AUTH-003 password reset', () => {
 
 describe('FR-AUTH-006 resend verification', () => {
   it('TC-AUTH-006-1 invalidates the previous token and is account-neutral', async () => {
-    const { app, mailer } = setup();
+    const { app, mailer, deliver } = setup();
     await createUser('resend@example.com', { verified: false });
     const send = (email: string) =>
       request(app).post('/api/v1/auth/resend-verification').set(csrf()).send({ email });
 
     expect((await send('resend@example.com')).status).toBe(202);
+    await deliver();
     const first = mailer.tokenFrom(mailer.last());
     expect((await send('resend@example.com')).status).toBe(202);
+    await deliver();
     const second = mailer.tokenFrom(mailer.last());
     expect((await send('nobody@example.com')).status).toBe(202);
 

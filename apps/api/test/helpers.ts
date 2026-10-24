@@ -4,6 +4,7 @@ import { createApp, DEFAULT_RATE_LIMITS, type AppDeps } from '../src/app.js';
 import { createLogger } from '../src/lib/logger.js';
 import type { Mail, Mailer } from '../src/lib/mailer.js';
 import { createPrisma, type Db } from '../src/lib/prisma.js';
+import { processOutboxBatch } from '../src/modules/notifications/outbox.processor.js';
 import type { ObjectStorage } from '../src/lib/storage.js';
 
 export const ORIGIN = 'http://localhost:5173';
@@ -39,15 +40,17 @@ export function memoryLogger() {
 export function buildApp(overrides: Partial<AppDeps> & { db: Db }) {
   const mailer = new MemoryMailer();
   const { logger, lines } = memoryLogger();
+  /** Runs the outbox worker once, as apps/worker would, delivering mail to `mailer`. */
+  const deliver = () =>
+    processOutboxBatch({ db: overrides.db, mailer, logger, appBaseUrl: ORIGIN, limit: 500 });
   const app = createApp({
     env: { WEB_ORIGINS: [ORIGIN], APP_BASE_URL: ORIGIN, TRUST_PROXY: 0 },
-    mailer,
     logger,
     storage: offlineStorage(),
     rateLimits: DEFAULT_RATE_LIMITS,
     ...overrides,
   });
-  return { app, mailer, logs: lines };
+  return { app, mailer, logs: lines, deliver };
 }
 
 /** Prisma client that is never connected; any accidental query fails loudly. */

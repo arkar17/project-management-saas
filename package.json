@@ -12,6 +12,7 @@
   "scripts": {
     "dev:api": "npm run dev -w @pm/api",
     "dev:web": "npm run dev -w @pm/web",
+    "dev:worker": "npm run dev -w @pm/worker",
     "build": "npm run build -w @pm/api && npm run build -w @pm/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "eslint .",

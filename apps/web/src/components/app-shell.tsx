@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useNavigate, useParams } from 'react-router-dom';
 import { useLogout, useMe } from '../lib/auth';
+import { useUnreadCount } from '../lib/notifications';
 import { lastWorkspace, useWorkspaces } from '../lib/workspaces';
 import { Alert } from './ui/alert';
 
@@ -10,6 +11,7 @@ export function AppShell() {
   const { data: user } = useMe();
   const workspaces = useWorkspaces();
   const logout = useLogout();
+  const unread = useUnreadCount(user?.emailVerified === true);
 
   const sections = wid
     ? [
@@ -53,6 +55,18 @@ export function AppShell() {
             </>
           )}
           <div className="ml-auto flex items-center gap-3 text-sm">
+            <NavLink
+              to="/notifications"
+              className="relative rounded-md px-2 py-1 font-medium text-slate-700 hover:bg-slate-100"
+              aria-label={`Notifications${unread.data ? `, ${unread.data} unread` : ''}`}
+            >
+              Notifications
+              {!!unread.data && (
+                <span className="ml-1 inline-flex min-w-5 justify-center rounded-full bg-primary px-1.5 text-xs text-primary-foreground">
+                  {unread.data > 99 ? '99+' : unread.data}
+                </span>
+              )}
+            </NavLink>
             <span className="hidden text-muted sm:inline">{user?.name}</span>
             <button
               type="button"

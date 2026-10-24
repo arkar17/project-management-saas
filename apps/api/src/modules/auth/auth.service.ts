@@ -3,7 +3,7 @@ import { Prisma, type SessionKind, type User, type VerificationTokenKind } from 
 import { createHash } from 'node:crypto';
 import type { Logger } from 'pino';
 import { AppError, tokenExpired } from '../../lib/errors.js';
-import type { Mailer } from '../../lib/mailer.js';
+import { EmailTopic, enqueue } from '../../lib/outbox.js';
 import { hashPassword, verifyAgainstDummy, verifyPassword } from '../../lib/password.js';
 import type { Db } from '../../lib/prisma.js';
 import { hashToken, newToken } from '../../lib/tokens.js';
@@ -18,9 +18,7 @@ const TOKEN_TTL: Record<VerificationTokenKind, number> = {
 export interface AuthDeps {
   db: Db;
   sessions: SessionService;
-  mailer: Mailer;
   logger: Logger;
-  appBaseUrl: string;
 }
 
 export function toAuthUser(user: User): AuthUserDto {
@@ -39,25 +37,29 @@ const emailRef = (email: string) => createHash('sha256').update(email).digest('h
 const invalidCredentials = () =>
   new AppError(401, 'INVALID_CREDENTIALS', 'Email or password is incorrect');
 
-export function createAuthService({ db, sessions, mailer, logger, appBaseUrl }: AuthDeps) {
-  /** Invalidates outstanding tokens of the same kind, then issues a fresh single-use token. */
-  async function issueToken(userId: string, kind: VerificationTokenKind): Promise<string> {
-    const token = newToken();
-    await db.$transaction([
-      db.verificationToken.updateMany({
+export function createAuthService({ db, sessions, logger }: AuthDeps) {
+  /**
+   * Invalidates outstanding tokens of the same kind and queues the email. The stored hash is of
+   * a value nobody holds; the worker swaps in a fresh token when it sends, so no usable secret
+   * ever sits in the outbox (ADR-005).
+   */
+  async function queueToken(userId: string, kind: VerificationTokenKind) {
+    await db.$transaction(async (tx) => {
+      await tx.verificationToken.updateMany({
         where: { userId, kind, consumedAt: null },
         data: { consumedAt: new Date() },
-      }),
-      db.verificationToken.create({
+      });
+      const record = await tx.verificationToken.create({
         data: {
           userId,
           kind,
-          tokenHash: hashToken(token),
+          tokenHash: hashToken(newToken()),
           expiresAt: new Date(Date.now() + TOKEN_TTL[kind]),
         },
-      }),
-    ]);
-    return token;
+      });
+      const topic = kind === 'EMAIL_VERIFY' ? EmailTopic.VERIFY : EmailTopic.PASSWORD_RESET;
+      await enqueue(tx, topic, userId, { tokenId: record.id });
+    });
   }
 
   /** Atomically consumes a token; a second use, wrong kind or expiry all yield 410. */
@@ -74,33 +76,22 @@ export function createAuthService({ db, sessions, mailer, logger, appBaseUrl }: 
     return record.userId;
   }
 
-  async function sendVerification(user: Pick<User, 'id' | 'email'>) {
-    const token = await issueToken(user.id, 'EMAIL_VERIFY');
-    await mailer.send({
-      to: user.email,
-      subject: 'Verify your email',
-      text: `Confirm your email address: ${appBaseUrl}/verify-email?token=${token}\nThis link expires in 24 hours.`,
-    });
-  }
-
   return {
     /** FR-AUTH-001: identical outcome for new and existing emails (account-neutral). */
     async register(input: RegisterInput): Promise<void> {
       const passwordHash = await hashPassword(input.password);
       const existing = await db.user.findUnique({ where: { email: input.email } });
       if (existing) {
-        await mailer.send({
-          to: existing.email,
-          subject: 'You already have an account',
-          text: `Someone tried to register with this email. Sign in at ${appBaseUrl}/login or reset your password at ${appBaseUrl}/forgot-password.`,
-        });
+        await db.$transaction((tx) =>
+          enqueue(tx, EmailTopic.ACCOUNT_EXISTS, existing.id, { userId: existing.id }),
+        );
         return;
       }
       try {
         const user = await db.user.create({
           data: { email: input.email, name: input.name, passwordHash },
         });
-        await sendVerification(user);
+        await queueToken(user.id, 'EMAIL_VERIFY');
       } catch (err) {
         // A concurrent registration won the unique email; keep the response account-neutral.
         if (!(err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002'))
@@ -119,7 +110,8 @@ export function createAuthService({ db, sessions, mailer, logger, appBaseUrl }: 
     /** FR-AUTH-006: account-neutral; previous verification tokens are invalidated. */
     async resendVerification(email: string): Promise<void> {
       const user = await db.user.findUnique({ where: { email } });
-      if (user && user.status === 'ACTIVE' && !user.verifiedAt) await sendVerification(user);
+      if (user && user.status === 'ACTIVE' && !user.verifiedAt)
+        await queueToken(user.id, 'EMAIL_VERIFY');
     },
 
     /**
@@ -157,12 +149,7 @@ export function createAuthService({ db, sessions, mailer, logger, appBaseUrl }: 
     async forgotPassword(email: string): Promise<void> {
       const user = await db.user.findUnique({ where: { email } });
       if (!user || user.status !== 'ACTIVE') return;
-      const token = await issueToken(user.id, 'PASSWORD_RESET');
-      await mailer.send({
-        to: user.email,
-        subject: 'Reset your password',
-        text: `Reset your password: ${appBaseUrl}/reset-password?token=${token}\nThis link expires in 1 hour. If you did not request it, ignore this email.`,
-      });
+      await queueToken(user.id, 'PASSWORD_RESET');
     },
 
     /** FR-AUTH-003: single-use 1 h token; every session of the user is revoked. */

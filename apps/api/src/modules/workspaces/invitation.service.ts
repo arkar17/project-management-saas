@@ -7,7 +7,7 @@ import {
 import { Prisma, type WorkspaceInvitation } from '@prisma/client';
 import { writeAudit } from '../../lib/audit.js';
 import { AppError, conflict, forbidden, notFound } from '../../lib/errors.js';
-import type { Mailer } from '../../lib/mailer.js';
+import { EmailTopic, enqueue } from '../../lib/outbox.js';
 import type { Db } from '../../lib/prisma.js';
 import { hashToken, newToken } from '../../lib/tokens.js';
 import {
@@ -44,29 +44,34 @@ async function expireStale(tx: Tx | Db, where: Prisma.WorkspaceInvitationWhereIn
   });
 }
 
-export function createInvitationService(db: Db, mailer: Mailer, appBaseUrl: string) {
+/** ADR-018 hourly sweep: bulk-expires PENDING invitations past expiresAt. Returns the count. */
+export async function expireInvitations(db: Db | Tx): Promise<number> {
+  const { count } = await db.workspaceInvitation.updateMany({
+    where: { state: 'PENDING', expiresAt: { lte: new Date() } },
+    data: { state: 'EXPIRED' },
+  });
+  return count;
+}
+
+export function createInvitationService(db: Db) {
+  /**
+   * The stored hash is of a value nobody holds; the worker rotates in the real token when it
+   * sends the email, so the outbox never carries a usable secret (ADR-005).
+   */
   async function issue(tx: Tx, access: WorkspaceAccess, email: string, role: 'ADMIN' | 'MEMBER') {
-    const token = newToken();
     const invitation = await tx.workspaceInvitation.create({
       data: {
         workspaceId: access.workspaceId,
         email,
         role,
-        tokenHash: hashToken(token),
+        tokenHash: hashToken(newToken()),
         expiresAt: new Date(Date.now() + INVITE_TTL_MS),
         invitedById: access.userId,
       },
       include: { invitedBy: { select: { name: true } }, workspace: { select: { name: true } } },
     });
-    return { invitation, token };
-  }
-
-  async function sendInvite(to: string, workspaceName: string, inviter: string, token: string) {
-    await mailer.send({
-      to,
-      subject: `${inviter} invited you to ${workspaceName}`,
-      text: `Join ${workspaceName}: ${appBaseUrl}/invitations/accept?token=${token}\nThis invitation expires in 7 days.`,
-    });
+    await enqueue(tx, EmailTopic.INVITATION, invitation.id, { invitationId: invitation.id });
+    return { invitation };
   }
 
   /** Invitations are managed by Owner/Admin only; Members cannot even see them (FR-TEN-008). */
@@ -103,7 +108,7 @@ export function createInvitationService(db: Db, mailer: Mailer, appBaseUrl: stri
       if (member) throw conflict(ErrorCode.ALREADY_MEMBER, 'That person is already a member');
 
       try {
-        const { invitation, token } = await db.$transaction(async (tx) => {
+        const { invitation } = await db.$transaction(async (tx) => {
           await expireStale(tx, { workspaceId: access.workspaceId, email: input.email });
           const result = await issue(tx, access, input.email, input.role);
           await writeAudit(tx, {
@@ -116,7 +121,6 @@ export function createInvitationService(db: Db, mailer: Mailer, appBaseUrl: stri
           });
           return result;
         });
-        await sendInvite(input.email, invitation.workspace.name, invitation.invitedBy.name, token);
         return toDto(invitation);
       } catch (err) {
         if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
@@ -132,7 +136,7 @@ export function createInvitationService(db: Db, mailer: Mailer, appBaseUrl: stri
     /** ADR-013: resend = revoke current + issue a new token in one transaction. */
     async resend(userId: string, invitationId: string): Promise<InvitationDto> {
       const { access, invitation } = await resolveManaged(userId, invitationId);
-      const { invitation: next, token } = await db.$transaction(async (tx) => {
+      const { invitation: next } = await db.$transaction(async (tx) => {
         await expireStale(tx, { id: invitation.id });
         const { count } = await tx.workspaceInvitation.updateMany({
           where: { id: invitation.id, state: 'PENDING' },
@@ -150,7 +154,6 @@ export function createInvitationService(db: Db, mailer: Mailer, appBaseUrl: stri
         });
         return result;
       });
-      await sendInvite(next.email, next.workspace.name, next.invitedBy.name, token);
       return toDto(next);
     },
 
@@ -242,6 +245,11 @@ export function createInvitationService(db: Db, mailer: Mailer, appBaseUrl: stri
           targetType: 'WorkspaceMember',
           targetId: member.id,
           metadata: { invitationId: inv.id, role: inv.role, reactivated: existing !== null },
+        });
+        // FR-NTF-001: the inviter is notified by the worker, re-authorized at delivery.
+        await enqueue(tx, 'invitation.accepted', inv.id, {
+          invitationId: inv.id,
+          actorId: userId,
         });
         return { workspaceId: inv.workspaceId };
       });

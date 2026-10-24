@@ -408,6 +408,8 @@ export function createIssueService(db: Db) {
             issueId: current.id,
             actorId: access.userId,
             fields: notable,
+            // New assignee (null = unassigned) so delivery can send ASSIGNED, not just "updated".
+            ...(notable.includes('assigneeId') ? { assigneeId: changes.assigneeId ?? null } : {}),
           });
         }
         return toIssueDto(await load(tx, current.id));

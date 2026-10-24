@@ -8,7 +8,6 @@ import type { Env } from './config/env.js';
 import { csrfProtection } from './http/csrf.js';
 import { errorHandler, notFoundHandler } from './http/errors.js';
 import { genRequestId } from './http/request-id.js';
-import type { Mailer } from './lib/mailer.js';
 import type { Db } from './lib/prisma.js';
 import { authRouter, type AuthRateLimits } from './modules/auth/auth.routes.js';
 import { createAuthService } from './modules/auth/auth.service.js';
@@ -23,6 +22,8 @@ import { issueRouter } from './modules/issues/issue.routes.js';
 import { createIssueService } from './modules/issues/issue.service.js';
 import { createLabelService } from './modules/issues/label.service.js';
 import { createProjectMemberService } from './modules/projects/project-member.service.js';
+import { createNotificationService } from './modules/notifications/notification.service.js';
+import { notificationRouter } from './modules/notifications/notification.routes.js';
 import { projectRouter } from './modules/projects/project.routes.js';
 import { createProjectService } from './modules/projects/project.service.js';
 import { sprintRouter } from './modules/sprints/sprint.routes.js';
@@ -46,21 +47,13 @@ export const DEFAULT_RATE_LIMITS: AuthRateLimits = {
 export interface AppDeps {
   env: Pick<Env, 'WEB_ORIGINS' | 'APP_BASE_URL' | 'TRUST_PROXY'>;
   db: Db;
-  mailer: Mailer;
   logger: Logger;
   /** Private attachment storage (ADR-004). */
   storage: ObjectStorage;
   rateLimits?: AuthRateLimits;
 }
 
-export function createApp({
-  env,
-  db,
-  mailer,
-  logger,
-  storage,
-  rateLimits = DEFAULT_RATE_LIMITS,
-}: AppDeps) {
+export function createApp({ env, db, logger, storage, rateLimits = DEFAULT_RATE_LIMITS }: AppDeps) {
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', env.TRUST_PROXY);
@@ -72,7 +65,7 @@ export function createApp({
   app.use(cookieParser());
 
   const sessions = createSessionService(db);
-  const auth = createAuthService({ db, sessions, mailer, logger, appBaseUrl: env.APP_BASE_URL });
+  const auth = createAuthService({ db, sessions, logger });
 
   const api = express.Router();
   api.use('/health', healthRouter(db));
@@ -82,7 +75,7 @@ export function createApp({
 
   // Tenant routes: APP session + verified email (FR-AUTH-001, TC-AUTH-001-3).
   const requireVerifiedUser = [requireSession(sessions, 'APP'), requireVerifiedEmail(db)];
-  const invitations = createInvitationService(db, mailer, env.APP_BASE_URL);
+  const invitations = createInvitationService(db);
   const projects = createProjectService(db);
   api.use('/invitations', invitationRouter(invitations, requireVerifiedUser, rateLimits));
   api.use(
@@ -102,6 +95,11 @@ export function createApp({
     '/projects',
     ...requireVerifiedUser,
     projectRouter(db, projects, createProjectMemberService(db)),
+  );
+  api.use(
+    '/notifications',
+    ...requireVerifiedUser,
+    notificationRouter(createNotificationService(db)),
   );
   // Issues, labels and comments; each route resolves its own ancestry (ADR-002).
   // /projects/* is already guarded by the mount above.

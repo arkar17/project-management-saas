@@ -136,16 +136,18 @@ describe('FR-TEN-002 invitations', () => {
   });
 
   it('TC-TEN-002-3 resend revokes the old token and issues a new one', async () => {
-    const { app, wid, ownerCookie, mailer, member, memberCookie } = await world();
+    const { app, wid, ownerCookie, mailer, deliver, member, memberCookie } = await world();
     const created = await request(app)
       .post(`${api}/workspaces/${wid}/invitations`)
       .set(as(ownerCookie))
       .send({ email: 'join@x.test', role: 'ADMIN' });
+    await deliver();
     const oldToken = mailer.tokenFrom(mailer.last('join@x.test'));
     const resent = await request(app)
       .post(`${api}/invitations/${created.body.invitation.id}/resend`)
       .set(as(ownerCookie));
     expect(resent.status).toBe(201);
+    await deliver();
     const newToken = mailer.tokenFrom(mailer.last('join@x.test'));
     expect(newToken).not.toBe(oldToken);
     const old = await db.workspaceInvitation.findUniqueOrThrow({
@@ -203,6 +205,7 @@ describe('FR-TEN-003 acceptance', () => {
       .post(`${api}/workspaces/${ctx.wid}/invitations`)
       .set(as(ctx.ownerCookie))
       .send({ email, role: 'MEMBER' });
+    await ctx.deliver();
     return ctx.mailer.tokenFrom(ctx.mailer.last(email));
   }
 
