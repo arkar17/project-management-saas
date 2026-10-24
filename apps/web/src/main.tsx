@@ -13,6 +13,12 @@ import { MembersPage } from './pages/workspaces/members-page';
 import { SettingsPage } from './pages/workspaces/settings-page';
 import { WorkspaceIndexPage } from './pages/workspaces/workspace-index-page';
 import { WorkspaceOverviewPage } from './pages/workspaces/workspace-overview-page';
+import { CreateProjectPage } from './pages/projects/create-project-page';
+import { ProjectLayout } from './pages/projects/project-layout';
+import { ProjectListPage } from './pages/projects/project-list-page';
+import { ProjectMembersPage } from './pages/projects/project-members-page';
+import { ProjectOverviewPage } from './pages/projects/project-overview-page';
+import { ProjectSettingsPage } from './pages/projects/project-settings-page';
 import { RequireAuth } from './routes/require-auth';
 
 const queryClient = new QueryClient();
@@ -38,6 +44,13 @@ createRoot(document.getElementById('root')!).render(
             <Route path="/workspaces/:wid" element={<WorkspaceOverviewPage />} />
             <Route path="/workspaces/:wid/members" element={<MembersPage />} />
             <Route path="/workspaces/:wid/settings" element={<SettingsPage />} />
+            <Route path="/workspaces/:wid/projects" element={<ProjectListPage />} />
+            <Route path="/workspaces/:wid/projects/new" element={<CreateProjectPage />} />
+            <Route path="/workspaces/:wid/projects/:pid" element={<ProjectLayout />}>
+              <Route index element={<ProjectOverviewPage />} />
+              <Route path="members" element={<ProjectMembersPage />} />
+              <Route path="settings" element={<ProjectSettingsPage />} />
+            </Route>
           </Route>
         </Routes>
       </BrowserRouter>

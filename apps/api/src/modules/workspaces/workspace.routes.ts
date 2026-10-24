@@ -17,12 +17,15 @@ import {
   sessionCookieOptions,
   type SessionService,
 } from '../auth/session.service.js';
+import { workspaceProjectsRouter } from '../projects/project.routes.js';
+import type { ProjectService } from '../projects/project.service.js';
 import type { InvitationService } from './invitation.service.js';
 import type { MemberService } from './member.service.js';
 import type { WorkspaceService } from './workspace.service.js';
 
 interface Deps {
   db: Db;
+  projects: ProjectService;
   workspaces: WorkspaceService;
   members: MemberService;
   invitations: InvitationService;
@@ -33,6 +36,7 @@ interface Deps {
 /** /workspaces — mounted behind requireSession('APP') + requireVerifiedEmail. */
 export function workspaceRouter({
   db,
+  projects,
   workspaces,
   members,
   invitations,
@@ -113,6 +117,8 @@ export function workspaceRouter({
       res.status(201).json({ invitation: await invitations.create(await access(req), req.body) });
     },
   );
+
+  router.use('/:wid/projects', workspaceProjectsRouter(db, projects));
 
   return router;
 }

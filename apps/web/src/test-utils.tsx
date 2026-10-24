@@ -20,13 +20,15 @@ export function stubApi(routes: Record<string, unknown>) {
   return fetchMock;
 }
 
-export function renderAt(path: string, pattern: string, element: ReactNode) {
+export function renderAt(path: string, pattern: string, element: ReactNode, children?: ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[path]}>
         <Routes>
-          <Route path={pattern} element={element} />
+          <Route path={pattern} element={element}>
+            {children}
+          </Route>
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,

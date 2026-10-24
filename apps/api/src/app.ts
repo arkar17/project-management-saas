@@ -15,6 +15,9 @@ import { createAuthService } from './modules/auth/auth.service.js';
 import { requireSession, requireVerifiedEmail } from './modules/auth/session.middleware.js';
 import { createSessionService } from './modules/auth/session.service.js';
 import { healthRouter } from './modules/health/health.routes.js';
+import { createProjectMemberService } from './modules/projects/project-member.service.js';
+import { projectRouter } from './modules/projects/project.routes.js';
+import { createProjectService } from './modules/projects/project.service.js';
 import { platformAuthRouter } from './modules/platform-admin/platform-auth.routes.js';
 import { invitationRouter } from './modules/workspaces/invitation.routes.js';
 import { createInvitationService } from './modules/workspaces/invitation.service.js';
@@ -62,18 +65,25 @@ export function createApp({ env, db, mailer, logger, rateLimits = DEFAULT_RATE_L
   // Tenant routes: APP session + verified email (FR-AUTH-001, TC-AUTH-001-3).
   const requireVerifiedUser = [requireSession(sessions, 'APP'), requireVerifiedEmail(db)];
   const invitations = createInvitationService(db, mailer, env.APP_BASE_URL);
+  const projects = createProjectService(db);
   api.use('/invitations', invitationRouter(invitations, requireVerifiedUser, rateLimits));
   api.use(
     '/workspaces',
     ...requireVerifiedUser,
     workspaceRouter({
       db,
+      projects,
       workspaces: createWorkspaceService(db),
       members: createMemberService(db),
       invitations,
       sessions,
       inviteLimit: rateLimits.invite,
     }),
+  );
+  api.use(
+    '/projects',
+    ...requireVerifiedUser,
+    projectRouter(db, projects, createProjectMemberService(db)),
   );
 
   app.use('/api/v1', api);

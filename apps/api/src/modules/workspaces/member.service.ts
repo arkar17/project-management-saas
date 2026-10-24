@@ -24,8 +24,22 @@ export async function removeFromWorkspace(
     data: { status: 'REMOVED', removedAt: now },
   });
 
+  const released = await releaseUserIssues(tx, { workspaceId }, userId, actorId);
+  return { projectMemberships, ...released };
+}
+
+/**
+ * ADR-012: when a user loses access to a workspace or project, their open issues there
+ * (not DONE, not deleted) are unassigned with activity, and their watches are deleted.
+ */
+export async function releaseUserIssues(
+  tx: Tx,
+  scope: { workspaceId: string } | { projectId: string },
+  userId: string,
+  actorId: string,
+) {
   const openIssues = await tx.issue.findMany({
-    where: { workspaceId, assigneeId: userId, deletedAt: null, status: { not: 'DONE' } },
+    where: { ...scope, assigneeId: userId, deletedAt: null, status: { not: 'DONE' } },
     select: { id: true },
   });
   if (openIssues.length > 0) {
@@ -44,9 +58,9 @@ export async function removeFromWorkspace(
     });
   }
   const { count: watches } = await tx.issueWatcher.deleteMany({
-    where: { userId, issue: { workspaceId } },
+    where: { userId, issue: scope },
   });
-  return { projectMemberships, unassignedIssues: openIssues.length, watches };
+  return { unassignedIssues: openIssues.length, watches };
 }
 
 export function createMemberService(db: Db) {

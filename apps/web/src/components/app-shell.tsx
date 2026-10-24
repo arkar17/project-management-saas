@@ -14,6 +14,7 @@ export function AppShell() {
   const sections = wid
     ? [
         { to: `/workspaces/${wid}`, label: 'Overview', end: true },
+        { to: `/workspaces/${wid}/projects`, label: 'Projects', end: false },
         { to: `/workspaces/${wid}/members`, label: 'Members', end: false },
         { to: `/workspaces/${wid}/settings`, label: 'Settings', end: false },
       ]
