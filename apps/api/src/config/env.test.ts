@@ -8,6 +8,9 @@ const valid = {
   SMTP_HOST: 'localhost',
   SMTP_PORT: '1025',
   MAIL_FROM: 'PM <no-reply@example.com>',
+  S3_BUCKET: 'pm-attachments',
+  S3_ACCESS_KEY_ID: 'key',
+  S3_SECRET_ACCESS_KEY: 'secret',
 };
 
 describe('loadEnv', () => {

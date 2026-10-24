@@ -1,5 +1,8 @@
 import type {
   ActivityDto,
+  AttachmentDownloadDto,
+  AttachmentDto,
+  AttachmentUploadDto,
   CommentDto,
   CreateIssueInput,
   IssueDto,
@@ -71,6 +74,8 @@ export const useComments = (iid: string) =>
 export const useActivity = (iid: string) =>
   useIssuePart(iid, 'activity', (r: { activity: ActivityDto[] }) => r.activity);
 export const useWatchers = (iid: string) => useIssuePart(iid, 'watchers', (r: WatchersDto) => r);
+export const useAttachments = (iid: string) =>
+  useIssuePart(iid, 'attachments', (r: { attachments: AttachmentDto[] }) => r.attachments);
 
 export const useLabels = (pid: string) =>
   useQuery({
@@ -133,3 +138,55 @@ export const useCreateLabel = (pid: string) =>
   );
 export const useDeleteLabel = () =>
   useIssueMutation((id: string) => api(`/labels/${id}`, { method: 'DELETE' }));
+
+/** Uploads straight to private storage through the signed PUT; reports progress 0–1. */
+function putToStorage(upload: AttachmentUploadDto, file: File, onProgress: (p: number) => void) {
+  return new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(upload.method, upload.url);
+    for (const [k, v] of Object.entries(upload.headers)) xhr.setRequestHeader(k, v);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(e.loaded / e.total);
+    };
+    xhr.onload = () =>
+      xhr.status >= 200 && xhr.status < 300
+        ? resolve()
+        : reject(
+            new Error(xhr.status === 403 ? 'Upload link expired; try again' : 'Upload failed'),
+          );
+    xhr.onerror = () => reject(new Error('Upload failed; check your connection'));
+    xhr.send(file);
+  });
+}
+
+/** FR-ISS-006 / ADR-004: initiate → signed PUT → confirm (server sniffs the content). */
+export async function uploadAttachment(
+  iid: string,
+  file: File,
+  mimeType: string,
+  onProgress: (p: number) => void,
+): Promise<AttachmentDto> {
+  const { upload } = await api<{ upload: AttachmentUploadDto }>(`/issues/${iid}/attachments`, {
+    method: 'POST',
+    body: { filename: file.name, mimeType, sizeBytes: file.size },
+  });
+  await putToStorage(upload, file, onProgress);
+  const { attachment } = await api<{ attachment: AttachmentDto }>(
+    `/issues/${iid}/attachments/confirm`,
+    { method: 'POST', body: { uploadId: upload.uploadId } },
+  );
+  return attachment;
+}
+
+/** Asks for a fresh 5-minute signed URL each time; the server re-authorizes the caller. */
+export async function downloadAttachment(aid: string): Promise<void> {
+  const { download } = await api<{ download: AttachmentDownloadDto }>(
+    `/attachments/${aid}/download`,
+  );
+  const a = document.createElement('a');
+  a.href = download.url;
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}

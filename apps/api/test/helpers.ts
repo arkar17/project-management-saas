@@ -4,6 +4,7 @@ import { createApp, DEFAULT_RATE_LIMITS, type AppDeps } from '../src/app.js';
 import { createLogger } from '../src/lib/logger.js';
 import type { Mail, Mailer } from '../src/lib/mailer.js';
 import { createPrisma, type Db } from '../src/lib/prisma.js';
+import type { ObjectStorage } from '../src/lib/storage.js';
 
 export const ORIGIN = 'http://localhost:5173';
 
@@ -42,6 +43,7 @@ export function buildApp(overrides: Partial<AppDeps> & { db: Db }) {
     env: { WEB_ORIGINS: [ORIGIN], APP_BASE_URL: ORIGIN, TRUST_PROXY: 0 },
     mailer,
     logger,
+    storage: offlineStorage(),
     rateLimits: DEFAULT_RATE_LIMITS,
     ...overrides,
   });
@@ -51,6 +53,12 @@ export function buildApp(overrides: Partial<AppDeps> & { db: Db }) {
 /** Prisma client that is never connected; any accidental query fails loudly. */
 export function offlineDb(): Db {
   return createPrisma('postgresql://offline:offline@127.0.0.1:1/offline');
+}
+
+/** Storage that is never reachable; attachment tests pass a real (local) one instead. */
+export function offlineStorage(): ObjectStorage {
+  const fail = () => Promise.reject(new Error('object storage is offline in this test'));
+  return { putSignedUrl: fail, getSignedUrl: fail, head: fail, readStart: fail, delete: fail };
 }
 
 /** Valid double-submit CSRF headers (ADR-001). */

@@ -20,6 +20,7 @@ import {
 } from '../../lib/issues';
 import { canInProject } from '../../lib/permissions';
 import { useProjectContext } from '../projects/project-layout';
+import { IssueAttachments } from './issue-attachments';
 import { IssueComments } from './issue-comments';
 import { IssueFieldsForm } from './issue-fields-form';
 import { LabelChip, StatusBadge, TYPE_LABEL } from './issue-meta';
@@ -35,6 +36,7 @@ const FIELD_TEXT: Record<string, string> = {
   parentId: 'changed the parent',
   dueAt: 'changed the due date',
   storyPoints: 'changed story points',
+  attachment: 'attached',
 };
 
 export function IssueDetailPage() {
@@ -93,6 +95,10 @@ export function IssueDetailPage() {
             assignable={assignable}
           />
           <Children iid={i.id} wid={wid} pid={project.id} />
+          <IssueAttachments
+            issueId={i.id}
+            canUpload={!readOnly && canInProject(access, 'commentAndAttach')}
+          />
           <IssueComments
             issueId={i.id}
             canComment={!readOnly && canInProject(access, 'commentAndAttach')}
@@ -229,6 +235,7 @@ function Activity({ iid }: { iid: string }) {
                 ? ` to ${a.newValue.replaceAll('_', ' ').toLowerCase()}`
                 : ''}
               {a.field === 'labels' ? `: ${a.newValue ?? 'none'}` : ''}
+              {a.field === 'attachment' && a.newValue ? ` ${a.newValue}` : ''}
             </span>
             <time className="text-muted" dateTime={a.createdAt}>
               {new Date(a.createdAt).toLocaleString()}

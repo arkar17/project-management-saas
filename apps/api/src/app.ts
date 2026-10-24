@@ -15,6 +15,8 @@ import { createAuthService } from './modules/auth/auth.service.js';
 import { requireSession, requireVerifiedEmail } from './modules/auth/session.middleware.js';
 import { createSessionService } from './modules/auth/session.service.js';
 import { healthRouter } from './modules/health/health.routes.js';
+import type { ObjectStorage } from './lib/storage.js';
+import { createAttachmentService } from './modules/issues/attachment.service.js';
 import { createBoardService } from './modules/issues/board.service.js';
 import { createCommentService } from './modules/issues/comment.service.js';
 import { issueRouter } from './modules/issues/issue.routes.js';
@@ -46,10 +48,19 @@ export interface AppDeps {
   db: Db;
   mailer: Mailer;
   logger: Logger;
+  /** Private attachment storage (ADR-004). */
+  storage: ObjectStorage;
   rateLimits?: AuthRateLimits;
 }
 
-export function createApp({ env, db, mailer, logger, rateLimits = DEFAULT_RATE_LIMITS }: AppDeps) {
+export function createApp({
+  env,
+  db,
+  mailer,
+  logger,
+  storage,
+  rateLimits = DEFAULT_RATE_LIMITS,
+}: AppDeps) {
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', env.TRUST_PROXY);
@@ -94,7 +105,7 @@ export function createApp({ env, db, mailer, logger, rateLimits = DEFAULT_RATE_L
   );
   // Issues, labels and comments; each route resolves its own ancestry (ADR-002).
   // /projects/* is already guarded by the mount above.
-  api.use(['/issues', '/labels', '/comments', '/sprints'], ...requireVerifiedUser);
+  api.use(['/issues', '/labels', '/comments', '/sprints', '/attachments'], ...requireVerifiedUser);
   api.use(sprintRouter(db, createBoardService(db), createSprintService(db)));
   api.use(
     issueRouter({
@@ -102,6 +113,7 @@ export function createApp({ env, db, mailer, logger, rateLimits = DEFAULT_RATE_L
       issues: createIssueService(db),
       comments: createCommentService(db),
       labels: createLabelService(db),
+      attachments: createAttachmentService(db, storage),
     }),
   );
 

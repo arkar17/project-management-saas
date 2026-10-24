@@ -1,5 +1,10 @@
 import {
   activityDto,
+  attachmentDownloadDto,
+  attachmentDto,
+  attachmentUploadDto,
+  confirmAttachmentInput,
+  initiateAttachmentInput,
   commentDto,
   commentInput,
   createIssueInput,
@@ -21,6 +26,7 @@ import { validateBody } from '../../http/validate.js';
 import type { Db } from '../../lib/prisma.js';
 import { resolveIssueAccess, resolveProjectAccess } from '../../policy/access.js';
 import { currentSession } from '../auth/session.middleware.js';
+import type { AttachmentService } from './attachment.service.js';
 import type { CommentService } from './comment.service.js';
 import type { IssueService } from './issue.service.js';
 import type { LabelService } from './label.service.js';
@@ -30,13 +36,14 @@ interface Deps {
   issues: IssueService;
   comments: CommentService;
   labels: LabelService;
+  attachments: AttachmentService;
 }
 
 const issueBody = z.object({ issue: issueDto });
 const userId = (req: Request) => currentSession(req).userId;
 
 /** Mounted at /api/v1 behind requireSession('APP') + requireVerifiedEmail. */
-export function issueRouter({ db, issues, comments, labels }: Deps) {
+export function issueRouter({ db, issues, comments, labels, attachments }: Deps) {
   const router = Router();
   const project = (req: Request) => resolveProjectAccess(db, userId(req), String(req.params.pid));
   const issue = (req: Request) => resolveIssueAccess(db, userId(req), String(req.params.iid));
@@ -144,6 +151,43 @@ export function issueRouter({ db, issues, comments, labels }: Deps) {
   router.post('/comments/:cid/moderate', validateBody(moderateCommentInput), async (req, res) => {
     await comments.moderate(userId(req), String(req.params.cid), req.body.reason);
     res.status(204).end();
+  });
+
+  // Attachments (FR-ISS-006, ADR-004): initiate → client PUTs to storage → confirm.
+  router.get('/issues/:iid/attachments', async (req, res) => {
+    sendDto(res, z.object({ attachments: z.array(attachmentDto) }), {
+      attachments: await attachments.list(await issue(req)),
+    });
+  });
+  router.post(
+    '/issues/:iid/attachments',
+    validateBody(initiateAttachmentInput),
+    async (req, res) => {
+      sendDto(
+        res,
+        z.object({ upload: attachmentUploadDto }),
+        { upload: await attachments.initiate(await issue(req), req.body) },
+        201,
+      );
+    },
+  );
+  router.post(
+    '/issues/:iid/attachments/confirm',
+    validateBody(confirmAttachmentInput),
+    async (req, res) => {
+      sendDto(
+        res,
+        z.object({ attachment: attachmentDto }),
+        { attachment: await attachments.confirm(await issue(req), req.body.uploadId) },
+        201,
+      );
+    },
+  );
+  router.get('/attachments/:aid/download', async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    sendDto(res, z.object({ download: attachmentDownloadDto }), {
+      download: await attachments.download(userId(req), String(req.params.aid)),
+    });
   });
 
   return router;

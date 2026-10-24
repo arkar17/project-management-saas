@@ -3,6 +3,7 @@ import { loadEnv } from './config/env.js';
 import { createLogger } from './lib/logger.js';
 import { createSmtpMailer } from './lib/mailer.js';
 import { createPrisma } from './lib/prisma.js';
+import { createS3Storage } from './lib/storage.js';
 
 const env = loadEnv();
 const logger = createLogger(env.LOG_LEVEL);
@@ -15,7 +16,16 @@ const mailer = createSmtpMailer({
   from: env.MAIL_FROM,
 });
 
-const server = createApp({ env, db, mailer, logger }).listen(env.PORT, () => {
+const storage = createS3Storage({
+  bucket: env.S3_BUCKET,
+  region: env.S3_REGION,
+  endpoint: env.S3_ENDPOINT,
+  accessKeyId: env.S3_ACCESS_KEY_ID,
+  secretAccessKey: env.S3_SECRET_ACCESS_KEY,
+  forcePathStyle: env.S3_FORCE_PATH_STYLE,
+});
+
+const server = createApp({ env, db, mailer, logger, storage }).listen(env.PORT, () => {
   logger.info({ port: env.PORT }, 'api listening');
 });
 
