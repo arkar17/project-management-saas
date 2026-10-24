@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loading, errorMessage } from '../components/page-state';
+import { ThemeSelect } from '../components/theme-select';
 import { Alert } from '../components/ui/alert';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
@@ -20,6 +21,14 @@ export function AccountPage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Account</h1>
       <Profile key={me.data.id + me.data.name + me.data.timezone} user={me.data} />
+      <Card title="Appearance">
+        <div className="max-w-xs">
+          <ThemeSelect />
+        </div>
+        <p className="mt-2 text-sm text-muted">
+          Saved in this browser. System follows your device.
+        </p>
+      </Card>
       <ChangePassword />
       <Deactivate />
     </div>

@@ -23,7 +23,9 @@
     "db:generate": "prisma generate",
     "db:validate": "prisma validate",
     "db:migrate:deploy": "prisma migrate deploy",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "db:seed:demo": "tsx prisma/demo-seed.ts",
+    "e2e": "npm run e2e -w @pm/web"
   },
   "prisma": {
     "schema": "prisma/schema.prisma"

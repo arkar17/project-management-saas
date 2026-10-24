@@ -1,4 +1,4 @@
-import { createApp } from './app.js';
+import { createApp, DEFAULT_RATE_LIMITS } from './app.js';
 import { loadEnv } from './config/env.js';
 import { createLogger } from './lib/logger.js';
 import { createPrisma } from './lib/prisma.js';
@@ -17,7 +17,14 @@ const storage = createS3Storage({
   forcePathStyle: env.S3_FORCE_PATH_STYLE,
 });
 
-const server = createApp({ env, db, logger, storage }).listen(env.PORT, () => {
+// Browser E2E runs many sign-ins from one IP; NODE_ENV=test (never production) relaxes limits.
+const relaxed = { windowMs: 60_000, limit: 10_000 };
+const rateLimits =
+  env.NODE_ENV === 'test'
+    ? { login: relaxed, register: relaxed, email: relaxed, invite: relaxed }
+    : DEFAULT_RATE_LIMITS;
+
+const server = createApp({ env, db, logger, storage, rateLimits }).listen(env.PORT, () => {
   logger.info({ port: env.PORT }, 'api listening');
 });
 

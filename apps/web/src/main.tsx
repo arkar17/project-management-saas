@@ -3,6 +3,8 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import './index.css';
+import { ApiError } from './lib/api';
+import { applyTheme, watchSystemTheme } from './lib/theme';
 import { AppShell } from './components/app-shell';
 import { AcceptInvitationPage } from './pages/accept-invitation-page';
 import { LoginPage } from './pages/login-page';
@@ -40,7 +42,18 @@ import { ProjectOverviewPage } from './pages/projects/project-overview-page';
 import { ProjectSettingsPage } from './pages/projects/project-settings-page';
 import { RequireAuth } from './routes/require-auth';
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // 4xx answers (401/403/404/422) are final; retrying only delays the error/forbidden state.
+      retry: (count, error) =>
+        !(error instanceof ApiError && error.status >= 400 && error.status < 500) && count < 2,
+    },
+  },
+});
+
+applyTheme();
+watchSystemTheme();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

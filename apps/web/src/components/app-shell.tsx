@@ -24,6 +24,12 @@ export function AppShell() {
 
   return (
     <div className="min-h-screen">
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-md focus:bg-white focus:px-3 focus:py-2 focus:text-sm focus:font-medium"
+      >
+        Skip to content
+      </a>
       <header className="border-b border-border bg-white">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-3 px-4 py-3">
           <NavLink to="/" className="text-lg font-semibold tracking-tight">
@@ -58,12 +64,12 @@ export function AppShell() {
             <NavLink
               to="/notifications"
               className="relative rounded-md px-2 py-1 font-medium text-slate-700 hover:bg-slate-100"
-              aria-label={`Notifications${unread.data ? `, ${unread.data} unread` : ''}`}
             >
               Notifications
               {!!unread.data && (
                 <span className="ml-1 inline-flex min-w-5 justify-center rounded-full bg-primary px-1.5 text-xs text-primary-foreground">
                   {unread.data > 99 ? '99+' : unread.data}
+                  <span className="sr-only"> unread</span>
                 </span>
               )}
             </NavLink>
@@ -103,7 +109,7 @@ export function AppShell() {
           </nav>
         )}
       </header>
-      <main className="mx-auto max-w-5xl space-y-6 px-4 py-8">
+      <main id="main" tabIndex={-1} className="mx-auto max-w-5xl space-y-6 px-4 py-8">
         {user && !user.emailVerified && (
           <Alert tone="info">
             Verify {user.email} using the link we emailed you before creating or joining a

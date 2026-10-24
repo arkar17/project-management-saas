@@ -3,11 +3,47 @@
 @theme {
   --color-primary: oklch(0.45 0.18 264);
   --color-primary-foreground: oklch(0.98 0 0);
-  --color-muted: oklch(0.55 0.02 264);
+  --color-muted: oklch(0.5 0.02 264);
   --color-border: oklch(0.88 0.01 264);
-  --color-destructive: oklch(0.55 0.2 27);
+  --color-destructive: oklch(0.52 0.2 27);
+}
+
+/*
+ * FR-UX-002 dark theme. Components use a small palette (white, slate, a few tints), so the dark
+ * theme remaps those tokens instead of adding dark: variants everywhere. Pairs keep WCAG AA
+ * contrast (body text on surfaces ≥ 7:1, muted text ≥ 4.5:1).
+ */
+:root.dark {
+  color-scheme: dark;
+  --color-primary: oklch(0.74 0.13 264);
+  --color-primary-foreground: oklch(0.16 0.03 264);
+  --color-muted: oklch(0.74 0.02 264);
+  --color-border: oklch(0.36 0.02 264);
+  --color-destructive: oklch(0.72 0.17 27);
+  --color-white: oklch(0.22 0.02 264);
+  --color-slate-50: oklch(0.17 0.02 264);
+  --color-slate-100: oklch(0.28 0.02 264);
+  --color-slate-200: oklch(0.34 0.02 264);
+  --color-slate-300: oklch(0.42 0.02 264);
+  --color-slate-400: oklch(0.6 0.02 264);
+  --color-slate-500: oklch(0.7 0.02 264);
+  --color-slate-600: oklch(0.8 0.02 264);
+  --color-slate-700: oklch(0.86 0.02 264);
+  --color-slate-900: oklch(0.96 0.01 264);
+  --color-indigo-50: oklch(0.3 0.06 264);
+  --color-red-50: oklch(0.3 0.07 27);
+  --color-amber-50: oklch(0.32 0.06 80);
+  --color-amber-700: oklch(0.82 0.13 80);
+  --color-amber-800: oklch(0.86 0.12 80);
+  --color-amber-900: oklch(0.9 0.1 80);
 }
 
 body {
   @apply bg-slate-50 text-slate-900 antialiased;
+}
+
+/* Visible keyboard focus everywhere (WCAG 2.4.7), not only on components that style it. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }

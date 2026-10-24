@@ -1,4 +1,5 @@
 import { Navigate, NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { ThemeSelect } from '../../components/theme-select';
 import { Alert } from '../../components/ui/alert';
 import { usePlatformLogout, usePlatformMe } from '../../lib/platform';
 
@@ -24,10 +25,19 @@ export function PlatformShell() {
   if (!me.data) return <Navigate to="/platform/login" replace />;
   return (
     <div className="min-h-screen">
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-md focus:bg-white focus:px-3 focus:py-2 focus:text-sm focus:font-medium"
+      >
+        Skip to content
+      </a>
       <header className="border-b border-border bg-slate-900 text-white">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-3">
           <span className="text-lg font-semibold">PM SaaS · Platform</span>
           <div className="ml-auto flex items-center gap-3 text-sm">
+            <div className="w-28 text-slate-900">
+              <ThemeSelect hideLabel />
+            </div>
             <span className="hidden opacity-80 sm:inline">{me.data.name}</span>
             <button
               type="button"
@@ -55,7 +65,7 @@ export function PlatformShell() {
           ))}
         </nav>
       </header>
-      <main className="mx-auto max-w-6xl space-y-6 px-4 py-8">
+      <main id="main" tabIndex={-1} className="mx-auto max-w-6xl space-y-6 px-4 py-8">
         <Outlet />
       </main>
     </div>
