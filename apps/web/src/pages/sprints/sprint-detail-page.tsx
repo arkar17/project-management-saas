@@ -1,3 +1,4 @@
+import { SprintBurndown } from './sprint-burndown';
 import { updateSprintInput, type SprintDto } from '@pm/shared';
 import { useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
@@ -83,6 +84,9 @@ export function SprintDetailPage() {
           </Card>
           {(sprint.status === 'COMPLETED' || sprint.status === 'ACTIVE') && (
             <SprintReport sid={sid} />
+          )}
+          {(sprint.status === 'COMPLETED' || sprint.status === 'ACTIVE') && (
+            <SprintBurndown sid={sid} />
           )}
         </div>
         <aside className="space-y-6">

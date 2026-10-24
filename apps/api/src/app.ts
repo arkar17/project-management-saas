@@ -24,6 +24,8 @@ import { createLabelService } from './modules/issues/label.service.js';
 import { createProjectMemberService } from './modules/projects/project-member.service.js';
 import { createNotificationService } from './modules/notifications/notification.service.js';
 import { notificationRouter } from './modules/notifications/notification.routes.js';
+import { reportRouter } from './modules/reports/report.routes.js';
+import { createReportService } from './modules/reports/report.service.js';
 import { projectRouter } from './modules/projects/project.routes.js';
 import { createProjectService } from './modules/projects/project.service.js';
 import { sprintRouter } from './modules/sprints/sprint.routes.js';
@@ -104,6 +106,7 @@ export function createApp({ env, db, logger, storage, rateLimits = DEFAULT_RATE_
   // Issues, labels and comments; each route resolves its own ancestry (ADR-002).
   // /projects/* is already guarded by the mount above.
   api.use(['/issues', '/labels', '/comments', '/sprints', '/attachments'], ...requireVerifiedUser);
+  api.use(reportRouter(db, createReportService(db)));
   api.use(sprintRouter(db, createBoardService(db), createSprintService(db)));
   api.use(
     issueRouter({

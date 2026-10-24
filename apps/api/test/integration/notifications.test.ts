@@ -429,7 +429,7 @@ describe('ADR-018 hourly invitation expiry', () => {
       data: { expiresAt: new Date(Date.now() - 1000) },
     });
     const { logger } = memoryLogger();
-    expect(await runHourlyJobs(db, logger)).toEqual({ expiredInvitations: 1 });
+    expect(await runHourlyJobs(db, logger)).toEqual({ expiredInvitations: 1, sprintsMeasured: 0 });
     expect(
       (await db.workspaceInvitation.findMany({ orderBy: { email: 'asc' } })).map((i) => [
         i.email,
@@ -442,7 +442,7 @@ describe('ADR-018 hourly invitation expiry', () => {
     await w.deliver();
     expect(w.mailer.sent.map((m) => m.to)).toEqual(['fresh@n.test']);
     // Idempotent: a second run changes nothing.
-    expect(await runHourlyJobs(db, logger)).toEqual({ expiredInvitations: 0 });
+    expect(await runHourlyJobs(db, logger)).toEqual({ expiredInvitations: 0, sprintsMeasured: 0 });
   });
 
   it('only one worker runs the hourly jobs at a time (advisory lock)', async () => {
@@ -451,6 +451,6 @@ describe('ADR-018 hourly invitation expiry', () => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(4018001)`;
       expect(await runHourlyJobs(db, logger)).toBeNull();
     });
-    expect(await runHourlyJobs(db, logger)).toEqual({ expiredInvitations: 0 });
+    expect(await runHourlyJobs(db, logger)).toEqual({ expiredInvitations: 0, sprintsMeasured: 0 });
   });
 });

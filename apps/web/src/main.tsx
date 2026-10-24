@@ -14,6 +14,7 @@ import { SettingsPage } from './pages/workspaces/settings-page';
 import { WorkspaceIndexPage } from './pages/workspaces/workspace-index-page';
 import { WorkspaceOverviewPage } from './pages/workspaces/workspace-overview-page';
 import { BoardRoute } from './pages/board/board-route';
+import { ProjectReportsPage } from './pages/projects/project-reports-page';
 import { NotificationsPage } from './pages/notifications/notifications-page';
 import { BacklogPage } from './pages/sprints/backlog-page';
 import { SprintDetailPage } from './pages/sprints/sprint-detail-page';
@@ -61,6 +62,7 @@ createRoot(document.getElementById('root')!).render(
               <Route path="sprints" element={<SprintsPage />} />
               <Route path="sprints/:sid" element={<SprintDetailPage />} />
               <Route path="issues" element={<IssueListPage />} />
+              <Route path="reports" element={<ProjectReportsPage />} />
               <Route path="issues/:iid" element={<IssueDetailPage />} />
               <Route path="members" element={<ProjectMembersPage />} />
               <Route path="settings" element={<ProjectSettingsPage />} />

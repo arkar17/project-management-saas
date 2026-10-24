@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { dueBucket, localDate, reportRange } from './reports.js';
 import { ACTORS } from './permissions.js';
 
 export const PROJECT_STATUSES = ['PLANNED', 'ACTIVE', 'ON_HOLD', 'COMPLETED'] as const;
@@ -122,6 +123,9 @@ export const projectOverviewDto = z.object({
   upcomingIssues: z.number().int(),
   memberCount: z.number().int(),
   activeSprint: z.object({ id: z.string(), name: z.string(), endAt: z.string() }).nullable(),
+  byType: z.record(z.string(), z.number().int()),
+  byPriority: z.record(z.string(), z.number().int()),
+  range: reportRange,
 });
 export type ProjectOverviewDto = z.infer<typeof projectOverviewDto>;
 
@@ -130,24 +134,26 @@ export interface OverviewIssue {
   dueAt: Date | null;
 }
 
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-
-/** FR-PRJ-005 metric definitions; pure so it is unit-tested against fixtures (TC-PRJ-005-1). */
-export function computeProjectOverview(issues: readonly OverviewIssue[], now: Date) {
+/**
+ * FR-PRJ-005 / FR-RPT-002 metric definitions; pure so it is unit-tested against fixtures
+ * (TC-PRJ-005-1, TC-RPT-002-1). Day boundaries use the workspace timezone (FR-RPT-006).
+ */
+export function computeProjectOverview(
+  issues: readonly OverviewIssue[],
+  now: Date,
+  timeZone = 'UTC',
+) {
+  const today = localDate(now, timeZone);
   const byStatus: Record<string, number> = {};
   let done = 0;
   let overdue = 0;
   let upcoming = 0;
   for (const issue of issues) {
     byStatus[issue.status] = (byStatus[issue.status] ?? 0) + 1;
-    if (issue.status === 'DONE') {
-      done++;
-      continue;
-    }
-    if (!issue.dueAt) continue;
-    const due = issue.dueAt.getTime();
-    if (due < now.getTime()) overdue++;
-    else if (due <= now.getTime() + WEEK_MS) upcoming++;
+    if (issue.status === 'DONE') done++;
+    const bucket = dueBucket(issue, today, timeZone);
+    if (bucket === 'overdue') overdue++;
+    else if (bucket === 'upcoming') upcoming++;
   }
   return {
     totalIssues: issues.length,

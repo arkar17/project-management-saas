@@ -20,6 +20,7 @@ import {
   type ProjectAccess,
 } from '../../policy/access.js';
 import { issueInclude, lockProject, toIssueDto } from '../issues/issue.service.js';
+import { writeSprintMetrics } from '../reports/sprint-metrics.js';
 
 type Tx = Prisma.TransactionClient;
 const OPEN: SprintStatus[] = ['PLANNED', 'ACTIVE'];
@@ -350,6 +351,8 @@ export function createSprintService(db: Db) {
           where: { id: sprint.id },
           data: { status: 'COMPLETED', closedAt: now },
         });
+        // ADR-018: the final daily metrics are written synchronously with the completion.
+        await writeSprintMetrics(tx, sprint.id, now);
         await writeAudit(tx, {
           workspaceId: access.workspaceId,
           actorId: access.userId,

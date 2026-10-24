@@ -8,3 +8,4 @@ export * from './rank.js';
 export * from './sprints.js';
 export * from './attachments.js';
 export * from './notifications.js';
+export * from './reports.js';

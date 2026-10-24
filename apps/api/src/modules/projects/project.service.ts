@@ -1,6 +1,8 @@
 import {
   ErrorCode,
+  addDays,
   computeProjectOverview,
+  localDate,
   type CreateProjectInput,
   type ProjectDto,
   type ProjectListDto,
@@ -181,19 +183,32 @@ export function createProjectService(db: Db) {
 
     /** FR-PRJ-005 overview; soft-deleted issues are excluded from every metric. */
     async overview(access: ProjectAccess, now = new Date()): Promise<ProjectOverviewDto> {
-      const [issues, memberCount, activeSprint] = await Promise.all([
+      const [issues, memberCount, activeSprint, workspace] = await Promise.all([
         db.issue.findMany({
           where: { projectId: access.projectId, deletedAt: null },
-          select: { status: true, dueAt: true },
+          select: { status: true, dueAt: true, type: true, priority: true },
         }),
         db.projectMember.count({ where: { projectId: access.projectId, status: 'ACTIVE' } }),
         db.sprint.findFirst({
           where: { projectId: access.projectId, status: 'ACTIVE' },
           select: { id: true, name: true, endAt: true },
         }),
+        db.workspace.findUniqueOrThrow({
+          where: { id: access.workspaceId },
+          select: { timezone: true },
+        }),
       ]);
+      const count = (key: 'type' | 'priority') => {
+        const out: Record<string, number> = {};
+        for (const i of issues) out[i[key]] = (out[i[key]] ?? 0) + 1;
+        return out;
+      };
+      const today = localDate(now, workspace.timezone);
       return {
-        ...computeProjectOverview(issues, now),
+        ...computeProjectOverview(issues, now, workspace.timezone),
+        byType: count('type'),
+        byPriority: count('priority'),
+        range: { timezone: workspace.timezone, from: today, to: addDays(today, 7) },
         memberCount,
         activeSprint: activeSprint
           ? {
