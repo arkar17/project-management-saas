@@ -30,5 +30,36 @@ export function rankBetween(a: string | null, b: string | null): string {
   }
 }
 
-/** Key that sorts after every existing key (append to the end of a column). */
-export const rankAfter = (last: string | null) => rankBetween(last, null);
+/** First append key: four digits, starting mid-space, leaves ~800k appends of headroom. */
+const APPEND_START = MID + '000';
+
+/**
+ * Key after `last` for appends: `last` + 1 as a same-width base-36 number, so appends never
+ * lengthen keys until the width is exhausted (then one digit is added). Rebalancing
+ * (evenRanks) restores headroom.
+ */
+export function rankAfter(last: string | null): string {
+  if (last === null) return APPEND_START;
+  const digits = [...last].map((c) => DIGITS.indexOf(c));
+  for (let i = digits.length - 1; i >= 0; i--) {
+    if (digits[i]! < BASE - 1) {
+      digits[i]!++;
+      return digits.map((d) => DIGITS[d]).join('');
+    }
+    digits[i] = 0;
+  }
+  return last + MID;
+}
+
+/** Keys longer than this trigger a rebalance of the project's ranks (ADR-016). */
+export const MAX_RANK_LENGTH = 64;
+
+/** n evenly spaced, fixed-width keys in ascending order, used when rebalancing. */
+export function evenRanks(n: number): string[] {
+  // Two spare digits and only the lower half of the space: room for inserts between
+  // neighbours and for many appends (rankAfter) before the next rebalance.
+  const width = Math.max(4, Math.ceil(Math.log(n + 2) / Math.log(BASE)) + 2);
+  const space = BASE ** width;
+  const step = Math.floor(space / 2 / (n + 1));
+  return Array.from({ length: n }, (_, i) => ((i + 1) * step).toString(36).padStart(width, '0'));
+}

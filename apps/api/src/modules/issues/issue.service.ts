@@ -2,6 +2,8 @@ import {
   ErrorCode,
   childrenError,
   hierarchyError,
+  MAX_RANK_LENGTH,
+  evenRanks,
   rankAfter,
   type ActivityDto,
   type CreateIssueInput,
@@ -9,7 +11,6 @@ import {
   type IssueField,
   type IssueListDto,
   type IssueListQuery,
-  type IssueStatus,
   type UpdateIssueInput,
 } from '@pm/shared';
 import type { Prisma } from '@prisma/client';
@@ -68,17 +69,38 @@ const fieldForbidden = (fields: string[]) =>
   new AppError(403, ErrorCode.FIELD_FORBIDDEN, 'Field change not permitted', { fields });
 
 /** Rows serialise on the project row lock, so concurrent appends never share a rank. */
-async function lockProject(tx: Tx, projectId: string) {
+export async function lockProject(tx: Tx, projectId: string) {
   await tx.$queryRaw`SELECT id FROM "Project" WHERE id = ${projectId}::uuid FOR UPDATE`;
 }
 
-async function endOfColumn(tx: Tx, projectId: string, status: IssueStatus, exceptId?: string) {
+/**
+ * Rank after every issue of the project, i.e. the end of any status column and of the
+ * backlog: one rank orders both views (ADR-016), so appends must not collide across statuses.
+ * Callers hold the project row lock.
+ */
+export async function endOfColumn(tx: Tx, projectId: string, exceptId?: string): Promise<string> {
   const last = await tx.issue.findFirst({
-    where: { projectId, status, ...(exceptId ? { id: { not: exceptId } } : {}) },
+    where: { projectId, ...(exceptId ? { id: { not: exceptId } } : {}) },
     orderBy: { rank: 'desc' },
     select: { rank: true },
   });
-  return rankAfter(last?.rank ?? null);
+  const key = rankAfter(last?.rank ?? null);
+  if (key.length <= MAX_RANK_LENGTH) return key;
+  await rebalanceRanks(tx, projectId);
+  return endOfColumn(tx, projectId, exceptId);
+}
+
+/** Re-spaces every rank in the project, preserving order (FR-BRD-003). Caller holds the lock. */
+export async function rebalanceRanks(tx: Tx, projectId: string) {
+  const rows = await tx.issue.findMany({
+    where: { projectId },
+    orderBy: [{ rank: 'asc' }, { id: 'asc' }],
+    select: { id: true },
+  });
+  const keys = evenRanks(rows.length);
+  for (const [i, row] of rows.entries()) {
+    await tx.issue.update({ where: { id: row.id }, data: { rank: keys[i]! } });
+  }
 }
 
 /** FR-ISS-009: ACTIVE project member, or ACTIVE workspace Owner/Admin; else 422. */
@@ -259,7 +281,7 @@ export function createIssueService(db: Db) {
             parentId: input.parentId ?? null,
             storyPoints: input.storyPoints ?? null,
             dueAt: input.dueAt ? new Date(input.dueAt) : null,
-            rank: await endOfColumn(tx, access.projectId, status),
+            rank: await endOfColumn(tx, access.projectId),
           },
         });
         if (input.labelIds?.length) {
@@ -333,7 +355,7 @@ export function createIssueService(db: Db) {
         if (statusChanged) {
           // ADR-008: a status change appends to the end of the target column.
           await lockProject(tx, access.projectId);
-          rank = await endOfColumn(tx, access.projectId, changes.status!, current.id);
+          rank = await endOfColumn(tx, access.projectId, current.id);
         }
 
         const { count } = await tx.issue.updateMany({

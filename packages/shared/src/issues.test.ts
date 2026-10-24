@@ -9,7 +9,7 @@ import {
   updateIssueInput,
   type IssueType,
 } from './issues.js';
-import { rankAfter, rankBetween } from './rank.js';
+import { MAX_RANK_LENGTH, evenRanks, rankAfter, rankBetween } from './rank.js';
 
 describe('TC-ISS-004-1 hierarchy matrix (ADR-006)', () => {
   const allowed: Record<string, IssueType[]> = {
@@ -98,4 +98,32 @@ describe('fractional ranks (ADR-016)', () => {
       lo = m;
     }
   });
+});
+
+describe('append keys stay short', () => {
+  it('10 000 consecutive appends stay strictly ordered and under the rebalance limit', () => {
+    let last: string | null = null;
+    for (let i = 0; i < 10_000; i++) {
+      const next = rankAfter(last);
+      if (last !== null) expect(next > last).toBe(true);
+      last = next;
+    }
+    expect(last!.length).toBeLessThan(MAX_RANK_LENGTH);
+  });
+});
+
+describe('rank rebalancing keys', () => {
+  it.each([1, 5, 36, 1000, 50_000])(
+    'evenRanks(%i) is strictly ascending, fixed width and short',
+    (n) => {
+      const keys = evenRanks(n);
+      expect(keys).toHaveLength(n);
+      for (let i = 1; i < n; i++) expect(keys[i]! > keys[i - 1]!).toBe(true);
+      expect(new Set(keys.map((k) => k.length)).size).toBe(1);
+      expect(keys[0]!.length).toBeLessThan(MAX_RANK_LENGTH);
+      // Room remains between neighbours and at both ends.
+      expect(rankBetween(null, keys[0]!) < keys[0]!).toBe(true);
+      if (n > 1) expect(rankBetween(keys[0]!, keys[1]!) > keys[0]!).toBe(true);
+    },
+  );
 });
