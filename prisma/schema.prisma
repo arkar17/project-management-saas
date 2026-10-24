@@ -1,0 +1,553 @@
+// Baseline 3.0 data model — mirrors Architecture v3 §4/§8 and 03_database_erd.drawio.
+// Every FK is RESTRICT/RESTRICT (ADR-019) except IssueLabel.labelId (CASCADE).
+// Partial unique indexes and CHECK constraints are not expressible in Prisma; they live
+// in the migration SQL (see prisma/migrations/*_init) and are listed at the end of this file.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  ACTIVE
+  DEACTIVATED
+}
+
+enum SessionKind {
+  APP
+  PLATFORM
+}
+
+enum VerificationTokenKind {
+  EMAIL_VERIFY
+  PASSWORD_RESET
+}
+
+enum PlatformAdminStatus {
+  ACTIVE
+  REVOKED
+}
+
+enum WorkspaceStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum WorkspaceRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum MembershipStatus {
+  ACTIVE
+  REMOVED
+}
+
+enum InvitationRole {
+  ADMIN
+  MEMBER
+}
+
+enum InvitationState {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+enum ProjectStatus {
+  PLANNED
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+}
+
+enum ProjectRole {
+  PROJECT_MANAGER
+  MEMBER
+}
+
+enum IssueType {
+  EPIC
+  STORY
+  TASK
+  BUG
+  SUBTASK
+}
+
+enum IssueStatus {
+  BACKLOG
+  TO_DO
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+}
+
+enum IssuePriority {
+  LOWEST
+  LOW
+  MEDIUM
+  HIGH
+  HIGHEST
+}
+
+enum SprintStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum NotificationType {
+  ASSIGNED
+  MENTIONED
+  INVITE_ACCEPTED
+  WATCHED_ISSUE_UPDATED
+}
+
+enum AuditActorType {
+  USER
+  PLATFORM_ADMIN
+  SYSTEM
+}
+
+enum OutboxStatus {
+  PENDING
+  PROCESSED
+  DEAD
+}
+
+model User {
+  id           String     @id @default(uuid()) @db.Uuid
+  email        String     @unique
+  name         String
+  passwordHash String
+  status       UserStatus @default(ACTIVE)
+  timezone     String     @default("UTC")
+  avatarKey    String?
+  verifiedAt   DateTime?
+  deactivatedAt DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  sessions            Session[]
+  verificationTokens  VerificationToken[]
+  platformAdmin       PlatformAdmin?        @relation("PlatformAdminUser")
+  platformAdminGrants PlatformAdmin[]       @relation("PlatformAdminGrantedBy")
+  workspaceMembers    WorkspaceMember[]
+  invitationsSent     WorkspaceInvitation[] @relation("InvitationInvitedBy")
+  invitationsAccepted WorkspaceInvitation[] @relation("InvitationAcceptedBy")
+  invitationsRevoked  WorkspaceInvitation[] @relation("InvitationRevokedBy")
+  projectsCreated     Project[]             @relation("ProjectCreatedBy")
+  projectsArchived    Project[]             @relation("ProjectArchivedBy")
+  projectMembers      ProjectMember[]
+  issuesReported      Issue[]               @relation("IssueReporter")
+  issuesAssigned      Issue[]               @relation("IssueAssignee")
+  issuesDeleted       Issue[]               @relation("IssueDeletedBy")
+  comments            IssueComment[]        @relation("CommentAuthor")
+  commentsDeleted     IssueComment[]        @relation("CommentDeletedBy")
+  attachments         Attachment[]
+  activities          IssueActivity[]
+  watches             IssueWatcher[]
+  notifications       Notification[]
+  auditLogs           AuditLog[]
+}
+
+model Session {
+  id        String      @id @default(uuid()) @db.Uuid
+  userId    String      @db.Uuid
+  kind      SessionKind
+  tokenHash String      @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  ipHash    String?
+  userAgent String?
+  createdAt DateTime    @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  id         String                @id @default(uuid()) @db.Uuid
+  userId     String                @db.Uuid
+  tokenHash  String                @unique
+  kind       VerificationTokenKind
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime              @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+}
+
+model PlatformAdmin {
+  id          String              @id @default(uuid()) @db.Uuid
+  userId      String              @unique @db.Uuid
+  status      PlatformAdminStatus @default(ACTIVE)
+  grantedAt   DateTime            @default(now())
+  grantedById String?             @db.Uuid
+  revokedAt   DateTime?
+
+  user      User  @relation("PlatformAdminUser", fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  grantedBy User? @relation("PlatformAdminGrantedBy", fields: [grantedById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+}
+
+model Workspace {
+  id          String          @id @default(uuid()) @db.Uuid
+  slug        String          @unique
+  name        String
+  timezone    String
+  status      WorkspaceStatus @default(ACTIVE)
+  suspendedAt DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  members       WorkspaceMember[]
+  invitations   WorkspaceInvitation[]
+  projects      Project[]
+  issues        Issue[]
+  notifications Notification[]
+  auditLogs     AuditLog[]
+}
+
+model WorkspaceMember {
+  id          String           @id @default(uuid()) @db.Uuid
+  workspaceId String           @db.Uuid
+  userId      String           @db.Uuid
+  role        WorkspaceRole
+  status      MembershipStatus @default(ACTIVE)
+  joinedAt    DateTime         @default(now())
+  removedAt   DateTime?
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([workspaceId, userId])
+}
+
+model WorkspaceInvitation {
+  id           String          @id @default(uuid()) @db.Uuid
+  workspaceId  String          @db.Uuid
+  email        String
+  role         InvitationRole
+  tokenHash    String          @unique
+  state        InvitationState @default(PENDING)
+  expiresAt    DateTime
+  invitedById  String          @db.Uuid
+  createdAt    DateTime        @default(now())
+  acceptedAt   DateTime?
+  acceptedById String?         @db.Uuid
+  revokedAt    DateTime?
+  revokedById  String?         @db.Uuid
+
+  workspace  Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  invitedBy  User      @relation("InvitationInvitedBy", fields: [invitedById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  acceptedBy User?     @relation("InvitationAcceptedBy", fields: [acceptedById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  revokedBy  User?     @relation("InvitationRevokedBy", fields: [revokedById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([workspaceId, email, state])
+}
+
+model Project {
+  id           String        @id @default(uuid()) @db.Uuid
+  workspaceId  String        @db.Uuid
+  key          String
+  name         String
+  description  String?
+  status       ProjectStatus @default(PLANNED)
+  startDate    DateTime?     @db.Date
+  targetDate   DateTime?     @db.Date
+  issueCounter Int           @default(0)
+  createdById  String        @db.Uuid
+  archivedAt   DateTime?
+  archivedById String?       @db.Uuid
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  workspace     Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdBy     User                 @relation("ProjectCreatedBy", fields: [createdById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  archivedBy    User?                @relation("ProjectArchivedBy", fields: [archivedById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  members       ProjectMember[]
+  issues        Issue[]
+  labels        Label[]
+  sprints       Sprint[]
+  sprintHistory SprintIssueHistory[]
+  issueLabels   IssueLabel[]
+  notifications Notification[]
+
+  @@unique([workspaceId, key])
+  @@unique([id, workspaceId])
+}
+
+model ProjectMember {
+  id        String           @id @default(uuid()) @db.Uuid
+  projectId String           @db.Uuid
+  userId    String           @db.Uuid
+  role      ProjectRole
+  status    MembershipStatus @default(ACTIVE)
+  joinedAt  DateTime         @default(now())
+  removedAt DateTime?
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([projectId, userId])
+}
+
+model Issue {
+  id          String        @id @default(uuid()) @db.Uuid
+  workspaceId String        @db.Uuid
+  projectId   String        @db.Uuid
+  number      Int
+  key         String
+  type        IssueType
+  title       String
+  description String?
+  status      IssueStatus   @default(BACKLOG)
+  priority    IssuePriority @default(MEDIUM)
+  reporterId  String        @db.Uuid
+  assigneeId  String?       @db.Uuid
+  parentId    String?       @db.Uuid
+  sprintId    String?       @db.Uuid
+  storyPoints Int?
+  rank        String
+  version     Int           @default(1)
+  dueAt       DateTime?
+  deletedAt   DateTime?
+  deletedById String?       @db.Uuid
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  // Composite FKs (ADR-011): the database itself rejects cross-workspace/cross-project links.
+  project   Project   @relation(fields: [projectId, workspaceId], references: [id, workspaceId], onDelete: Restrict, onUpdate: Restrict)
+  parent    Issue?    @relation("IssueParent", fields: [parentId, projectId], references: [id, projectId], onDelete: Restrict, onUpdate: Restrict)
+  sprint    Sprint?   @relation(fields: [sprintId, projectId], references: [id, projectId], onDelete: Restrict, onUpdate: Restrict)
+  reporter  User      @relation("IssueReporter", fields: [reporterId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  assignee  User?     @relation("IssueAssignee", fields: [assigneeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  deletedBy User?     @relation("IssueDeletedBy", fields: [deletedById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  children      Issue[]              @relation("IssueParent")
+  labels        IssueLabel[]
+  comments      IssueComment[]
+  attachments   Attachment[]
+  activities    IssueActivity[]
+  watchers      IssueWatcher[]
+  sprintHistory SprintIssueHistory[]
+  notifications Notification[]
+
+  @@unique([projectId, number])
+  @@unique([id, projectId])
+  @@unique([id, workspaceId])
+  @@index([projectId, status, rank])
+  @@index([assigneeId, status])
+  @@index([projectId, sprintId])
+  @@index([parentId])
+}
+
+model Label {
+  id        String   @id @default(uuid()) @db.Uuid
+  projectId String   @db.Uuid
+  name      String
+  color     String
+  createdAt DateTime @default(now())
+
+  project Project      @relation(fields: [projectId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  issues  IssueLabel[]
+
+  @@unique([projectId, name])
+  @@unique([id, projectId])
+}
+
+model IssueLabel {
+  issueId   String @db.Uuid
+  labelId   String @db.Uuid
+  projectId String @db.Uuid
+
+  issue   Issue   @relation(fields: [issueId, projectId], references: [id, projectId], onDelete: Restrict, onUpdate: Restrict)
+  // The only CASCADE in the model: deleting a label removes its issue links (ADR-019).
+  label   Label   @relation(fields: [labelId, projectId], references: [id, projectId], onDelete: Cascade, onUpdate: Restrict)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([issueId, labelId])
+}
+
+model IssueComment {
+  id               String    @id @default(uuid()) @db.Uuid
+  issueId          String    @db.Uuid
+  authorId         String    @db.Uuid
+  body             String
+  createdAt        DateTime  @default(now())
+  editedAt         DateTime?
+  deletedAt        DateTime?
+  deletedById      String?   @db.Uuid
+  moderationReason String?
+
+  issue     Issue @relation(fields: [issueId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  author    User  @relation("CommentAuthor", fields: [authorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  deletedBy User? @relation("CommentDeletedBy", fields: [deletedById], references: [id], onDelete: Restrict, onUpdate: Restrict)
+}
+
+model Attachment {
+  id           String   @id @default(uuid()) @db.Uuid
+  issueId      String   @db.Uuid
+  uploaderId   String   @db.Uuid
+  objectKey    String   @unique
+  mimeType     String
+  sizeBytes    Int
+  originalName String
+  createdAt    DateTime @default(now())
+
+  issue    Issue @relation(fields: [issueId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  uploader User  @relation(fields: [uploaderId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+}
+
+model IssueActivity {
+  id        String   @id @default(uuid()) @db.Uuid
+  issueId   String   @db.Uuid
+  actorId   String   @db.Uuid
+  field     String
+  oldValue  String?
+  newValue  String?
+  createdAt DateTime @default(now())
+
+  issue Issue @relation(fields: [issueId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  actor User  @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+}
+
+model IssueWatcher {
+  id        String   @id @default(uuid()) @db.Uuid
+  issueId   String   @db.Uuid
+  userId    String   @db.Uuid
+  createdAt DateTime @default(now())
+
+  issue Issue @relation(fields: [issueId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([issueId, userId])
+  @@index([userId])
+}
+
+model Sprint {
+  id          String       @id @default(uuid()) @db.Uuid
+  projectId   String       @db.Uuid
+  name        String
+  goal        String?
+  startAt     DateTime
+  endAt       DateTime
+  status      SprintStatus @default(PLANNED)
+  startedAt   DateTime?
+  closedAt    DateTime?
+  cancelledAt DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  project      Project              @relation(fields: [projectId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  issues       Issue[]
+  history      SprintIssueHistory[]
+  dailyMetrics SprintDailyMetric[]
+
+  @@unique([id, projectId])
+}
+
+model SprintIssueHistory {
+  id              String    @id @default(uuid()) @db.Uuid
+  sprintId        String    @db.Uuid
+  issueId         String    @db.Uuid
+  projectId       String    @db.Uuid
+  addedAt         DateTime  @default(now())
+  removedAt       DateTime?
+  committedAt     DateTime?
+  committedPoints Int?
+  completedAt     DateTime?
+  completedPoints Int?
+
+  sprint  Sprint  @relation(fields: [sprintId, projectId], references: [id, projectId], onDelete: Restrict, onUpdate: Restrict)
+  issue   Issue   @relation(fields: [issueId, projectId], references: [id, projectId], onDelete: Restrict, onUpdate: Restrict)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([issueId])
+}
+
+model SprintDailyMetric {
+  id                       String   @id @default(uuid()) @db.Uuid
+  sprintId                 String   @db.Uuid
+  metricDate               DateTime @db.Date
+  remainingCommittedPoints Int
+  scopeAddedPoints         Int
+  computedAt               DateTime @default(now())
+
+  sprint Sprint @relation(fields: [sprintId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([sprintId, metricDate])
+}
+
+model Notification {
+  id          String           @id @default(uuid()) @db.Uuid
+  recipientId String           @db.Uuid
+  workspaceId String           @db.Uuid
+  projectId   String?          @db.Uuid
+  issueId     String?          @db.Uuid
+  type        NotificationType
+  payload     Json
+  readAt      DateTime?
+  dedupeKey   String?
+  createdAt   DateTime         @default(now())
+
+  recipient User      @relation(fields: [recipientId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  project   Project?  @relation(fields: [projectId, workspaceId], references: [id, workspaceId], onDelete: Restrict, onUpdate: Restrict)
+  issue     Issue?    @relation(fields: [issueId, workspaceId], references: [id, workspaceId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([recipientId, dedupeKey])
+  @@index([recipientId, readAt, createdAt])
+}
+
+model AuditLog {
+  id          String         @id @default(uuid()) @db.Uuid
+  workspaceId String?        @db.Uuid
+  actorType   AuditActorType
+  actorId     String?        @db.Uuid
+  action      String
+  targetType  String
+  // Polymorphic reference without FK (ADR-019).
+  targetId    String
+  metadata    Json
+  createdAt   DateTime       @default(now())
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  actor     User?      @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([workspaceId, createdAt])
+}
+
+model OutboxEvent {
+  id          String       @id @default(uuid()) @db.Uuid
+  topic       String
+  payload     Json
+  aggregateId String
+  status      OutboxStatus @default(PENDING)
+  attempts    Int          @default(0)
+  availableAt DateTime     @default(now())
+  lastError   String?
+  createdAt   DateTime     @default(now())
+  processedAt DateTime?
+
+  @@index([status, availableAt])
+}
+
+// Raw-SQL constraints added in the init migration (keep in sync):
+//   WorkspaceMember_one_active_owner        UNIQUE (workspaceId) WHERE role='OWNER' AND status='ACTIVE'
+//   WorkspaceInvitation_one_pending         UNIQUE (workspaceId, email) WHERE state='PENDING'
+//   Sprint_one_active_per_project           UNIQUE (projectId) WHERE status='ACTIVE'
+//   SprintIssueHistory_one_open             UNIQUE (sprintId, issueId) WHERE removedAt IS NULL
+//   Project_dates_check                     CHECK (startDate <= targetDate)
+//   Sprint_dates_check                      CHECK (startAt < endAt)
+//   Issue_story_points_check                CHECK (storyPoints BETWEEN 0 AND 100)
+//   AuditLog_actor_check                    CHECK (actorId IS NOT NULL OR actorType = 'SYSTEM')

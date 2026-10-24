@@ -1,0 +1,13 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-primary: oklch(0.45 0.18 264);
+  --color-primary-foreground: oklch(0.98 0 0);
+  --color-muted: oklch(0.55 0.02 264);
+  --color-border: oklch(0.88 0.01 264);
+  --color-destructive: oklch(0.55 0.2 27);
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 antialiased;
+}

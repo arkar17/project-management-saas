@@ -1,0 +1,8 @@
+docs/baseline-v3
+node_modules
+dist
+coverage
+package-lock.json
+prisma/migrations
+CLAUDE.md
+README.md

@@ -9,7 +9,7 @@ One app with many logically isolated workspaces. Credits expire **5 Nov 2026**. 
 - **Jobs:** DB outbox + worker (`apps/worker`).
 - **Files:** private S3-compatible storage behind an adapter.
 - **Ops:** Docker Compose locally, GitHub Actions CI, structured JSON logs with request ID.
-- Monorepo/package tooling and test runners are G1 implementation choices. Record them here once chosen; do not open an ADR for them.
+- Tooling (G1): npm workspaces, TypeScript 5.9, ESLint 9 + Prettier, Vitest (`unit` / `integration` projects), Supertest, tsup (API build), Prisma 6, Argon2id via `@node-rs/argon2`.
 
 ## 2. Authoritative documents (`docs/baseline-v3/`, approved, read-only)
 | Topic | File |
