@@ -26,6 +26,8 @@ import { createNotificationService } from './modules/notifications/notification.
 import { notificationRouter } from './modules/notifications/notification.routes.js';
 import { reportRouter } from './modules/reports/report.routes.js';
 import { createReportService } from './modules/reports/report.service.js';
+import { userRouter } from './modules/users/user.routes.js';
+import { createUserService } from './modules/users/user.service.js';
 import { projectRouter } from './modules/projects/project.routes.js';
 import { createProjectService } from './modules/projects/project.service.js';
 import { sprintRouter } from './modules/sprints/sprint.routes.js';
@@ -86,6 +88,8 @@ export function createApp({ env, db, logger, storage, rateLimits = DEFAULT_RATE_
 
   // Tenant routes: APP session + verified email (FR-AUTH-001, TC-AUTH-001-3).
   const requireVerifiedUser = [requireSession(sessions, 'APP'), requireVerifiedEmail(db)];
+  // FR-AUTH-004: unverified users may still manage their own account.
+  api.use('/users', requireSession(sessions, 'APP'), userRouter(db, createUserService(db)));
   const invitations = createInvitationService(db);
   const projects = createProjectService(db);
   api.use('/invitations', invitationRouter(invitations, requireVerifiedUser, rateLimits));

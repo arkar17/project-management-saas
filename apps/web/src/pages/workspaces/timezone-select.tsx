@@ -12,7 +12,9 @@ export function TimezoneSelect({
   onChange,
   error,
   disabled,
+  label = 'Reporting timezone',
 }: {
+  label?: string;
   value: string;
   onChange: (tz: string) => void;
   error?: string | undefined;
@@ -21,7 +23,7 @@ export function TimezoneSelect({
   const options = useMemo(() => zones(value), [value]);
   return (
     <SelectField
-      label="Reporting timezone"
+      label={label}
       value={value}
       error={error}
       disabled={disabled}

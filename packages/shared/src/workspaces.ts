@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import { emailSchema } from './auth.js';
-import type { WorkspaceRole } from './permissions.js';
 
 /** FR-TEN-001: slugs are lower-case, hyphen-separated and unique after normalisation. */
 export function slugify(input: string): string {
@@ -77,47 +76,56 @@ export const invitationTokenQuery = z.object({ token: z.string().min(1).max(200)
 export type WorkspaceStatus = 'ACTIVE' | 'SUSPENDED';
 export type InvitationState = 'PENDING' | 'ACCEPTED' | 'EXPIRED' | 'REVOKED';
 
-export interface WorkspaceSummaryDto {
-  id: string;
-  slug: string;
-  name: string;
-  timezone: string;
-  status: WorkspaceStatus;
-  myRole: WorkspaceRole;
-}
+const workspaceRole = z.enum(['OWNER', 'ADMIN', 'MEMBER']);
+const invitationRole = z.enum(['ADMIN', 'MEMBER']);
 
-export interface WorkspaceDetailDto extends WorkspaceSummaryDto {
-  memberCount: number;
+// Response contracts (validated by sendDto, GAP-01).
+export const workspaceSummaryDto = z.object({
+  id: z.string().uuid(),
+  slug: z.string(),
+  name: z.string(),
+  timezone: z.string(),
+  status: z.enum(['ACTIVE', 'SUSPENDED']),
+  myRole: workspaceRole,
+});
+export type WorkspaceSummaryDto = z.infer<typeof workspaceSummaryDto>;
+
+export const workspaceDetailDto = workspaceSummaryDto.extend({
+  memberCount: z.number().int(),
   /** Projects the caller can see (all for Owner/Admin, own memberships otherwise). */
-  projectCount: number;
-  createdAt: string;
-}
+  projectCount: z.number().int(),
+  createdAt: z.string(),
+});
+export type WorkspaceDetailDto = z.infer<typeof workspaceDetailDto>;
 
-export interface MemberDto {
-  id: string;
-  userId: string;
-  name: string;
-  avatarKey: string | null;
-  role: WorkspaceRole;
-  joinedAt: string;
+export const memberDto = z.object({
+  id: z.string().uuid(),
+  userId: z.string().uuid(),
+  name: z.string(),
+  avatarKey: z.string().nullable(),
+  role: workspaceRole,
+  joinedAt: z.string(),
   /** Present for Owner/Admin callers only (FR-TEN-008). */
-  email?: string;
-}
+  email: z.string().optional(),
+});
+export type MemberDto = z.infer<typeof memberDto>;
 
-export interface InvitationDto {
-  id: string;
-  email: string;
-  role: 'ADMIN' | 'MEMBER';
-  state: InvitationState;
-  expiresAt: string;
-  createdAt: string;
-  invitedBy: string;
-}
+export const invitationDto = z.object({
+  id: z.string().uuid(),
+  email: z.string(),
+  role: invitationRole,
+  state: z.enum(['PENDING', 'ACCEPTED', 'EXPIRED', 'REVOKED']),
+  expiresAt: z.string(),
+  createdAt: z.string(),
+  invitedBy: z.string(),
+});
+export type InvitationDto = z.infer<typeof invitationDto>;
 
-export interface InvitationPreviewDto {
-  workspaceName: string;
-  invitedBy: string;
-  email: string;
-  role: 'ADMIN' | 'MEMBER';
-  expiresAt: string;
-}
+export const invitationPreviewDto = z.object({
+  workspaceName: z.string(),
+  invitedBy: z.string(),
+  email: z.string(),
+  role: invitationRole,
+  expiresAt: z.string(),
+});
+export type InvitationPreviewDto = z.infer<typeof invitationPreviewDto>;

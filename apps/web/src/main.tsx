@@ -24,6 +24,8 @@ import {
   PlatformWorkspacesPage,
 } from './pages/platform/platform-pages';
 import { PlatformShell } from './pages/platform/platform-shell';
+import { AccountPage } from './pages/account-page';
+import { ForgotPasswordPage, ResetPasswordPage } from './pages/password-pages';
 import { NotificationsPage } from './pages/notifications/notifications-page';
 import { BacklogPage } from './pages/sprints/backlog-page';
 import { SprintDetailPage } from './pages/sprints/sprint-detail-page';
@@ -48,6 +50,8 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/invitations/accept" element={<AcceptInvitationPage />} />
           <Route path="/platform/login" element={<PlatformLoginPage />} />
           <Route path="/platform" element={<PlatformShell />}>
@@ -67,6 +71,7 @@ createRoot(document.getElementById('root')!).render(
             <Route path="/" element={<WorkspaceIndexPage />} />
             <Route path="/workspaces/new" element={<CreateWorkspacePage />} />
             <Route path="/notifications" element={<NotificationsPage />} />
+            <Route path="/account" element={<AccountPage />} />
             <Route path="/workspaces/:wid" element={<WorkspaceOverviewPage />} />
             <Route path="/workspaces/:wid/members" element={<MembersPage />} />
             <Route path="/workspaces/:wid/settings" element={<SettingsPage />} />

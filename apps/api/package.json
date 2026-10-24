@@ -12,7 +12,8 @@
     "start": "node dist/server.js",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run --project unit",
-    "test:integration": "vitest run --project integration"
+    "test:integration": "vitest run --project integration",
+    "openapi": "tsx scripts/openapi.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1156.0",
@@ -37,6 +38,7 @@
     "@types/nodemailer": "^6.4.17",
     "@types/supertest": "^6.0.3",
     "supertest": "^7.1.0",
-    "tsup": "^8.5.0"
+    "tsup": "^8.5.0",
+    "zod-to-json-schema": "^3.25.2"
   }
 }

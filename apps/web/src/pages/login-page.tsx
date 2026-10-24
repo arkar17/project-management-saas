@@ -69,6 +69,12 @@ export function LoginPage() {
         <Button type="submit" disabled={login.isPending}>
           {login.isPending ? 'Signing in…' : 'Sign in'}
         </Button>
+        <Link
+          to="/forgot-password"
+          className="block text-center text-sm font-medium text-primary underline-offset-4 hover:underline"
+        >
+          Forgot your password?
+        </Link>
       </form>
       <p className="text-center text-sm text-muted">
         No account?{' '}

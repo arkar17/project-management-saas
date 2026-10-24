@@ -67,7 +67,16 @@ export function AppShell() {
                 </span>
               )}
             </NavLink>
-            <span className="hidden text-muted sm:inline">{user?.name}</span>
+            <NavLink
+              to="/account"
+              className="hidden rounded-md px-2 py-1 text-muted hover:bg-slate-100 sm:inline"
+              title="Account settings"
+            >
+              {user?.name}
+            </NavLink>
+            <NavLink to="/account" className="rounded-md px-2 py-1 text-muted sm:hidden">
+              Account
+            </NavLink>
             <button
               type="button"
               className="rounded-md px-2 py-1 font-medium text-primary hover:bg-indigo-50"

@@ -1,5 +1,7 @@
-import { invitationTokenQuery, tokenInput } from '@pm/shared';
+import { invitationDto, invitationPreviewDto, invitationTokenQuery, tokenInput } from '@pm/shared';
 import { Router, type RequestHandler } from 'express';
+import { z } from 'zod';
+import { sendDto } from '../../http/respond.js';
 import { rateLimiter, type RateLimitRule } from '../../http/rate-limit.js';
 import { validateBody } from '../../http/validate.js';
 import { currentSession } from '../auth/session.middleware.js';
@@ -15,11 +17,17 @@ export function invitationRouter(
 
   router.get('/preview', rateLimiter(limits.email), async (req, res) => {
     const { token } = invitationTokenQuery.parse(req.query);
-    res.json({ invitation: await invitations.preview(token) });
+    sendDto(res, z.object({ invitation: invitationPreviewDto }), {
+      invitation: await invitations.preview(token),
+    });
   });
 
   router.post('/accept', ...requireVerifiedUser, validateBody(tokenInput), async (req, res) => {
-    res.json(await invitations.accept(currentSession(req).userId, req.body.token));
+    sendDto(
+      res,
+      z.object({ workspaceId: z.string().uuid() }),
+      await invitations.accept(currentSession(req).userId, req.body.token),
+    );
   });
 
   router.post(
@@ -31,7 +39,7 @@ export function invitationRouter(
         currentSession(req).userId,
         String(req.params.invId),
       );
-      res.status(201).json({ invitation });
+      sendDto(res, z.object({ invitation: invitationDto }), { invitation }, 201);
     },
   );
 

@@ -4,8 +4,14 @@ import {
   transferOwnershipInput,
   updateMemberInput,
   updateWorkspaceInput,
+  invitationDto,
+  memberDto,
+  workspaceDetailDto,
+  workspaceSummaryDto,
 } from '@pm/shared';
 import { Router, type Request } from 'express';
+import { z } from 'zod';
+import { sendDto } from '../../http/respond.js';
 import { rateLimiter, type RateLimitRule } from '../../http/rate-limit.js';
 import { validateBody } from '../../http/validate.js';
 import type { Db } from '../../lib/prisma.js';
@@ -44,35 +50,41 @@ export function workspaceRouter({
   inviteLimit,
 }: Deps) {
   const router = Router();
+  const workspaceBody = z.object({ workspace: workspaceDetailDto.or(workspaceSummaryDto) });
   // Workspace is always resolved from the URL + caller membership, never from the body.
   const access = (req: Request) =>
     resolveWorkspaceAccess(db, currentSession(req).userId, String(req.params.wid));
 
   router.get('/', async (req, res) => {
-    res.json({ workspaces: await workspaces.listForUser(currentSession(req).userId) });
+    sendDto(res, z.object({ workspaces: z.array(workspaceSummaryDto) }), {
+      workspaces: await workspaces.listForUser(currentSession(req).userId),
+    });
   });
 
   router.post('/', validateBody(createWorkspaceInput), async (req, res) => {
-    res
-      .status(201)
-      .json({ workspace: await workspaces.create(currentSession(req).userId, req.body) });
+    sendDto(
+      res,
+      workspaceBody,
+      { workspace: await workspaces.create(currentSession(req).userId, req.body) },
+      201,
+    );
   });
 
   router.get('/:wid', async (req, res) => {
-    res.json({ workspace: await workspaces.getDetail(await access(req)) });
+    sendDto(res, workspaceBody, { workspace: await workspaces.getDetail(await access(req)) });
   });
 
   router.patch('/:wid', validateBody(updateWorkspaceInput), async (req, res) => {
     const a = await access(req);
     assertWorkspaceCan(a, 'manageWorkspaceSettingsAndInvites');
     assertWritable(a);
-    res.json({ workspace: await workspaces.update(a, req.body) });
+    sendDto(res, workspaceBody, { workspace: await workspaces.update(a, req.body) });
   });
 
   router.get('/:wid/members', async (req, res) => {
     const a = await access(req);
     assertWorkspaceCan(a, 'viewMemberList');
-    res.json({ members: await members.list(a) });
+    sendDto(res, z.object({ members: z.array(memberDto) }), { members: await members.list(a) });
   });
 
   router.patch('/:wid/members/:mid', validateBody(updateMemberInput), async (req, res) => {
@@ -106,7 +118,9 @@ export function workspaceRouter({
   );
 
   router.get('/:wid/invitations', async (req, res) => {
-    res.json({ invitations: await invitations.list(await access(req)) });
+    sendDto(res, z.object({ invitations: z.array(invitationDto) }), {
+      invitations: await invitations.list(await access(req)),
+    });
   });
 
   router.post(
@@ -114,7 +128,12 @@ export function workspaceRouter({
     rateLimiter(inviteLimit),
     validateBody(inviteInput),
     async (req, res) => {
-      res.status(201).json({ invitation: await invitations.create(await access(req), req.body) });
+      sendDto(
+        res,
+        z.object({ invitation: invitationDto }),
+        { invitation: await invitations.create(await access(req), req.body) },
+        201,
+      );
     },
   );
 

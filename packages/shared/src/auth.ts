@@ -42,6 +42,37 @@ export const authUserDto = z.object({
 });
 export type AuthUserDto = z.infer<typeof authUserDto>;
 
+// ---- FR-AUTH-004 account self-service ----
+
+export const updatePreferencesInput = z
+  .object({
+    name: z.string().trim().min(1).max(100).optional(),
+    timezone: z
+      .string()
+      .min(1)
+      .max(64)
+      .refine((tz) => {
+        try {
+          new Intl.DateTimeFormat('en-US', { timeZone: tz });
+          return true;
+        } catch {
+          return false;
+        }
+      }, 'Must be a valid IANA timezone')
+      .optional(),
+  })
+  .refine((v) => Object.keys(v).length > 0, 'Nothing to update');
+export type UpdatePreferencesInput = z.infer<typeof updatePreferencesInput>;
+
+export const changePasswordInput = z.object({
+  currentPassword: z.string().min(1).max(128),
+  newPassword: passwordSchema,
+});
+export type ChangePasswordInput = z.infer<typeof changePasswordInput>;
+
+/** Re-authentication is required for deactivation. */
+export const deactivateAccountInput = z.object({ password: z.string().min(1).max(128) });
+
 /** CSRF double-submit (ADR-001): header must equal the non-HttpOnly cookie. */
 export const CSRF_COOKIE = 'pm_csrf';
 export const CSRF_HEADER = 'x-csrf-token';
