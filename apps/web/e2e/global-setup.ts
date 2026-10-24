@@ -12,7 +12,14 @@ export const users = {
 export default async function globalSetup() {
   const url =
     process.env.E2E_DATABASE_URL ?? 'postgresql://pm:pm_local_only@localhost:5432/pm_test';
-  if (!/\/[A-Za-z0-9_]+_test(\?|$)/.test(url)) throw new Error('E2E needs a *_test database');
+  // The suite truncates every table: only a local, disposable *_test database is allowed.
+  const target = new URL(url);
+  if (
+    !/^\/[A-Za-z0-9_]+_test$/.test(target.pathname) ||
+    !['localhost', '127.0.0.1', '[::1]'].includes(target.hostname)
+  ) {
+    throw new Error('E2E_DATABASE_URL must be a local database whose name ends in _test');
+  }
   const db = new PrismaClient({ datasourceUrl: url });
   try {
     const tables = await db.$queryRaw<{ tablename: string }[]>`

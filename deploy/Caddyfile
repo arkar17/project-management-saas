@@ -1,0 +1,18 @@
+# Automatic HTTPS (Let's Encrypt) for APP_DOMAIN. The SPA and the API share one origin, so the
+# Secure/SameSite=Lax session cookies and the CSRF Origin check work without CORS.
+{$APP_DOMAIN} {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+	handle /api/* {
+		reverse_proxy api:4000
+	}
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

@@ -151,3 +151,4 @@ vite.config.ts.timestamp-*
 # Playwright
 apps/web/test-results/
 apps/web/playwright-report/
+!.env.production.example

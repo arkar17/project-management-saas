@@ -5,9 +5,16 @@ import { hashPassword } from '../../src/lib/password.js';
 import { createPrisma } from '../../src/lib/prisma.js';
 
 const url = process.env.DATABASE_URL ?? '';
-// Integration tests TRUNCATE every table; refuse anything but a disposable *_test database.
-if (!/\/[A-Za-z0-9_]+_test(\?|$)/.test(url)) {
-  throw new Error('DATABASE_URL must point at a disposable database whose name ends in _test');
+// Integration tests TRUNCATE every table; refuse anything but a disposable, local *_test database.
+const target = URL.canParse(url) ? new URL(url) : null;
+if (
+  !target ||
+  !/^\/[A-Za-z0-9_]+_test$/.test(target.pathname) ||
+  !['localhost', '127.0.0.1', '[::1]'].includes(target.hostname)
+) {
+  throw new Error(
+    'DATABASE_URL must point at a local disposable database whose name ends in _test',
+  );
 }
 
 export const db = createPrisma(url);
