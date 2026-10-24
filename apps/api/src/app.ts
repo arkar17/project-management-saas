@@ -31,6 +31,8 @@ import { createProjectService } from './modules/projects/project.service.js';
 import { sprintRouter } from './modules/sprints/sprint.routes.js';
 import { createSprintService } from './modules/sprints/sprint.service.js';
 import { platformAuthRouter } from './modules/platform-admin/platform-auth.routes.js';
+import { platformRouter, requirePlatformAdmin } from './modules/platform-admin/platform.routes.js';
+import { createPlatformService } from './modules/platform-admin/platform.service.js';
 import { invitationRouter } from './modules/workspaces/invitation.routes.js';
 import { createInvitationService } from './modules/workspaces/invitation.service.js';
 import { createMemberService } from './modules/workspaces/member.service.js';
@@ -74,6 +76,13 @@ export function createApp({ env, db, logger, storage, rateLimits = DEFAULT_RATE_
   api.use(csrfProtection(env.WEB_ORIGINS));
   api.use('/auth', authRouter(auth, sessions, rateLimits));
   api.use('/platform/auth', platformAuthRouter(auth, sessions, rateLimits.login));
+  // Platform administration: PLATFORM session + ACTIVE PlatformAdmin on every request (ADR-007).
+  api.use(
+    '/platform',
+    requireSession(sessions, 'PLATFORM'),
+    requirePlatformAdmin(db),
+    platformRouter(createPlatformService(db)),
+  );
 
   // Tenant routes: APP session + verified email (FR-AUTH-001, TC-AUTH-001-3).
   const requireVerifiedUser = [requireSession(sessions, 'APP'), requireVerifiedEmail(db)];

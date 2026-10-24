@@ -2,6 +2,7 @@ import type { AuthUserDto, LoginInput, RegisterInput, ResetPasswordInput } from 
 import { Prisma, type SessionKind, type User, type VerificationTokenKind } from '@prisma/client';
 import { createHash } from 'node:crypto';
 import type { Logger } from 'pino';
+import { writeAudit } from '../../lib/audit.js';
 import { AppError, tokenExpired } from '../../lib/errors.js';
 import { EmailTopic, enqueue } from '../../lib/outbox.js';
 import { hashPassword, verifyAgainstDummy, verifyPassword } from '../../lib/password.js';
@@ -143,6 +144,19 @@ export function createAuthService({ db, sessions, logger }: AuthDeps) {
       }
       if (meta.previousToken) await sessions.revokeToken(meta.previousToken);
       const session = await sessions.create(user.id, kind, meta);
+      if (kind === 'PLATFORM') {
+        // Privileged sign-ins are audited (platform-wide row, no workspace).
+        await db.$transaction((tx) =>
+          writeAudit(tx, {
+            workspaceId: null,
+            actorId: user.id,
+            actorType: 'PLATFORM_ADMIN',
+            action: 'platform.login',
+            targetType: 'Session',
+            targetId: session.sessionId,
+          }),
+        );
+      }
       return { user, session };
     },
 

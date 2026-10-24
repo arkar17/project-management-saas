@@ -15,6 +15,15 @@ import { WorkspaceIndexPage } from './pages/workspaces/workspace-index-page';
 import { WorkspaceOverviewPage } from './pages/workspaces/workspace-overview-page';
 import { BoardRoute } from './pages/board/board-route';
 import { ProjectReportsPage } from './pages/projects/project-reports-page';
+import { PlatformLoginPage } from './pages/platform/platform-login-page';
+import {
+  PlatformAuditPage,
+  PlatformDashboardPage,
+  PlatformUsersPage,
+  PlatformWorkspaceDetailPage,
+  PlatformWorkspacesPage,
+} from './pages/platform/platform-pages';
+import { PlatformShell } from './pages/platform/platform-shell';
 import { NotificationsPage } from './pages/notifications/notifications-page';
 import { BacklogPage } from './pages/sprints/backlog-page';
 import { SprintDetailPage } from './pages/sprints/sprint-detail-page';
@@ -40,6 +49,14 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/invitations/accept" element={<AcceptInvitationPage />} />
+          <Route path="/platform/login" element={<PlatformLoginPage />} />
+          <Route path="/platform" element={<PlatformShell />}>
+            <Route index element={<PlatformDashboardPage />} />
+            <Route path="workspaces" element={<PlatformWorkspacesPage />} />
+            <Route path="workspaces/:wid" element={<PlatformWorkspaceDetailPage />} />
+            <Route path="users" element={<PlatformUsersPage />} />
+            <Route path="audit" element={<PlatformAuditPage />} />
+          </Route>
           <Route
             element={
               <RequireAuth>

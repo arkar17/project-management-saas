@@ -9,3 +9,4 @@ export * from './sprints.js';
 export * from './attachments.js';
 export * from './notifications.js';
 export * from './reports.js';
+export * from './platform.js';
